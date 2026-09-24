@@ -128,7 +128,7 @@ export function Review({ data, progress, sid, onBack, config }) {
 
 /* Stats reads the same attempts Progress counts — it holds no numbers of its
    own. Practice contributes nothing here, by design. */
-export function Stats({ data, progress, onReview, onStart, config }) {
+export function Stats({ data, progress, notes, onReview, onStart, config }) {
   const A = progress.attempts;
   if (!A.length)
     return (
@@ -159,8 +159,11 @@ export function Stats({ data, progress, onReview, onStart, config }) {
     .sort((x, y) => (y.started || 0) - (x.started || 0));
 
   const exportBackup = () => {
-    const blob = new Blob([JSON.stringify({ version: 1, sessions: progress.sessions, attempts: A }, null, 2)],
-                          { type: "application/json" });
+    // on the packaged build this is the only way anything leaves the device,
+    // so it carries the notes too
+    const blob = new Blob([JSON.stringify({
+      version: 1, sessions: progress.sessions, attempts: A, notes: notes ? notes.map : undefined,
+    }, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "progress-" + new Date().toISOString().slice(0, 10) + ".json";
@@ -254,10 +257,10 @@ export function Stats({ data, progress, onReview, onStart, config }) {
       <p className="note">
         {progress.api
           ? "Progress lives in progress.json and notes in notes.json, both beside the app."
-          : "Saved in this browser only — the server isn't running."}
+          : "Everything is stored on this device. Export writes a copy you can keep — worth doing before you reinstall."}
       </p>
       <div className="toolrow">
-        <button className="ghost" onClick={exportBackup}>Export progress</button>
+        <button className="ghost" onClick={exportBackup}>Export everything</button>
         <span className="note">To clear anything, use Reset — it works level by level.</span>
       </div>
     </>

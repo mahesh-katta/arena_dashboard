@@ -1,6 +1,8 @@
 /* Data loading, progress persistence, and the filter model.
    Nothing in here renders; the views read from it. */
 
+import { idbGet, idbSet, migrateFromLocalStorage } from "./local.js";
+
 export const PACE = 36;                  // prelims pace: 60 min / 100 questions
 const LS_KEY = "area.progress.v1";
 
@@ -107,20 +109,16 @@ export class Progress {
       this.emit();
       return;
     } catch (e) { this.api = false; }
-    try {
-      const d = JSON.parse(localStorage.getItem(LS_KEY)) || {};
-      this.attempts = d.attempts || [];
-      this.sessions = d.sessions || [];
-    } catch { /* first run */ }
+    // no server: this device is the only copy
+    const d = await migrateFromLocalStorage("progress", LS_KEY, { attempts: [], sessions: [] });
+    this.attempts = d.attempts || [];
+    this.sessions = d.sessions || [];
     this.emit();
   }
   mirror() {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify({
-        attempts: this.attempts, sessions: this.sessions,
-      }));
-      return true;
-    } catch (e) { return false; }
+    if (this.api) return true;            // the server is the record
+    idbSet("progress", { attempts: this.attempts, sessions: this.sessions });
+    return true;
   }
   record(rec) {
     this.attempts.push(rec);
@@ -311,10 +309,13 @@ export class Notes {
       this.emit();
       return;
     } catch { this.api = false; }
-    try { this.map = JSON.parse(localStorage.getItem(LS_NOTES)) || {}; } catch {}
+    this.map = await migrateFromLocalStorage("notes", LS_NOTES, {});
     this.emit();
   }
-  mirror() { try { localStorage.setItem(LS_NOTES, JSON.stringify(this.map)); } catch {} }
+  mirror() {
+    if (this.api) return;
+    idbSet("notes", this.map);
+  }
 
   async set(key, text) {
     text = (text || "").trim();

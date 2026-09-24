@@ -43,7 +43,10 @@ export default function NotesView({ data, notes, config, onStartSession }) {
     return (
       <>
         <h2>Notes</h2>
-        <p className="note">{notes.count} notes across {byTopic.length} topics. Pick one to read through.</p>
+        <p className="note">
+          {notes.count} {notes.count === 1 ? "note" : "notes"} across {byTopic.length}
+          {" "}{byTopic.length === 1 ? "topic" : "topics"}. Pick one to read through.
+        </p>
         <div className="shelf">
           {byTopic.map((t) => (
             <button key={t.topic} className="book" onClick={() => setTopic(t.topic)}>

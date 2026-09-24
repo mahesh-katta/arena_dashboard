@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useReducer } from "react";
 import { createRoot } from "react-dom/client";
 import { Progress, Notes, loadData, emptyFilter, buildBlocks, keysUnder, masteredKeys, qKey } from "./store.js";
+import { askToPersist } from "./local.js";
 import Funnel, { Landing } from "./Funnel.jsx";
 import Runner from "./Runner.jsx";
 import ProgressView from "./Progress.jsx";
@@ -50,7 +51,11 @@ function App() {
       try {
         const r = await fetch("api/config");
         if (r.ok) setConfig(await r.json());
-      } catch { /* opened without the server */ }
+      } catch {
+        // no server — this is the packaged build, so the only copy of your
+        // history is on this device. Ask the browser not to evict it.
+        askToPersist();
+      }
       try { setData(await loadData(setPct)); }
       catch (e) { setError(e.message); }
     })();
@@ -73,11 +78,15 @@ function App() {
       <div className="empty">
         <h2>Can't read the question bank</h2>
         <p className="note">
-          This page has to be served, not opened from the file system.<br />
-          Double-click <b>start.command</b> (Mac) or <b>start.bat</b> (Windows), then open
+          It needs <code>data/questions.json</code>, <code>data/sets.json</code> and
+          {" "}<code>data/charts/</code> sitting beside the app.
+        </p>
+        <p className="note">
+          On a computer this page has to be served rather than opened from the file
+          system — double-click <b>start.command</b> or <b>start.bat</b>, then open
           {" "}<a href="http://localhost:8000">localhost:8000</a>.
         </p>
-        <p className="note">It also needs <code>data/questions.json</code>, <code>data/sets.json</code> and <code>data/charts/</code>. ({error})</p>
+        <p className="note">({error})</p>
       </div>
     );
   if (!data) return <Boot pct={pct} />;
@@ -151,7 +160,7 @@ function App() {
                         onStartSession={testWhatsLeft} />
         )}
         {view === "stats" && (
-          <Stats data={data} progress={progress} config={config}
+          <Stats data={data} progress={progress} notes={notes} config={config}
                  onStart={() => { setF((p) => ({ ...p, style: "test" })); setView("funnel"); }}
                  onReview={(sid) => { setReviewSid(sid); setView("review"); }} />
         )}
