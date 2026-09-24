@@ -4,8 +4,10 @@
   "description": "Prelims practice app — React front end for the Guidely question bank",
   "main": "index.js",
   "scripts": {
+    "start": "node server.mjs",
     "build": "node build.mjs",
-    "watch": "node build.mjs --watch"
+    "watch": "node build.mjs --watch",
+    "dev": "node build.mjs --watch & node server.mjs"
   },
   "keywords": [],
   "author": "",
@@ -16,5 +18,8 @@
     "react-dom": "^19.3.0"
   },
   "private": true,
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
 }

@@ -7,7 +7,8 @@ area/
   app/            <- this repo. `git pull` here updates the whole interface.
     dist/            the built app (committed on purpose — see below)
     src/             the React source
-    serve.py         the server + progress API
+    server.mjs       the server + progress API (Node, no dependencies)
+    serve.py         the same thing in Python, as a fallback
   data/           <- questions.json, sets.json, charts/   (set up once, never changes)
   progress.json   <- your history. Outside the repo, so a pull can never touch it.
   start.command / start.bat
@@ -22,11 +23,13 @@ the server.
 Or from a terminal:
 
 ```sh
-python3 app/serve.py          # or: python3 app/serve.py 8080
+cd app && npm start           # or: node server.mjs 8080
 ```
 
-Nothing to install. Python 3.8+ is already on macOS and most Linux machines;
-on Windows, install Python once from python.org and tick "Add to PATH".
+Node 18+ is the only thing to install, once, from <https://nodejs.org>. The
+server itself has no dependencies — `npm install` is only needed if you want to
+build the app from source. If Node isn't there, `python3 app/serve.py` runs the
+same thing.
 
 ## Updating the interface
 
@@ -65,9 +68,17 @@ a backup.
 ## Editing the code
 
 ```sh
-npm install          # once
-node build.mjs       # build
-node build.mjs --watch
+npm install                   # once
+node build.mjs --watch        # terminal 1: rebuilds on every save
+npm start                     # terminal 2: serves it
+```
+
+Edit `src/`, save, refresh the browser. When you're done, build once without
+`--watch` so `dist/` is the minified version, then commit.
+
+```sh
+node build.mjs
+git add -A && git commit -m "what changed" && git push
 ```
 
 Commit `dist/` along with your changes — that is what makes `git pull` enough
