@@ -8,6 +8,7 @@ area/
     dist/            the built app (committed on purpose — see below)
     src/             the React source
     server.mjs       the server + progress API (Node, no dependencies)
+    start.command    double-click launcher (Mac) - start.bat on Windows
     serve.py         the same thing in Python, as a fallback
   data/           <- questions.json, sets.json, charts/   (set up once, never changes)
   progress.json   <- your history. Outside the repo, so a pull can never touch it.
@@ -91,3 +92,19 @@ on the other machine.
 text extraction can never recover). Optionally `data/guidely-pdfs/` — if it's
 there, every question gets a link to its source PDF; if not, those links simply
 don't appear.
+
+## What build.mjs does
+
+`src/` is React with JSX, which no browser understands. `build.mjs` runs esbuild
+over it: it follows the imports from `src/main.jsx`, pulls in React itself, turns
+the JSX into plain JavaScript, and writes the lot into one file, `dist/app.js`.
+It also copies `src/styles.css` across. That one file is what the browser loads.
+
+    node build.mjs            build once, minified - run this before committing
+    node build.mjs --watch    stay running, rebuild on every save, unminified
+
+`--watch` is for while you are working: save a file, refresh the browser, see the
+change. It leaves the output unminified so it is readable when something breaks.
+Without `--watch` it builds once and minifies, which is the version to commit -
+that is the file your friend's `git pull` delivers, and it is why he needs no
+Node toolchain of his own.
