@@ -1,0 +1,6 @@
+node_modules/
+*.log
+.DS_Store
+# progress.json lives outside this repo on purpose, but just in case:
+progress.json
+progress.json.bak
