@@ -88,7 +88,6 @@ export class Progress {
   constructor() {
     this.attempts = [];
     this.sessions = [];
-    this.flags = new Set();
     this.api = true;
     this.pending = [];
     this.flushT = null;
@@ -104,7 +103,6 @@ export class Progress {
       const d = await r.json();
       this.attempts = d.attempts || [];
       this.sessions = d.sessions || [];
-      this.flags = new Set(d.flags || []);
       this.api = true;
       this.emit();
       return;
@@ -113,14 +111,13 @@ export class Progress {
       const d = JSON.parse(localStorage.getItem(LS_KEY)) || {};
       this.attempts = d.attempts || [];
       this.sessions = d.sessions || [];
-      this.flags = new Set(d.flags || []);
     } catch { /* first run */ }
     this.emit();
   }
   mirror() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        attempts: this.attempts, sessions: this.sessions, flags: [...this.flags],
+        attempts: this.attempts, sessions: this.sessions,
       }));
       return true;
     } catch (e) { return false; }
@@ -140,18 +137,11 @@ export class Progress {
     this.mirror();
     this.flush();
   }
-  toggleFlag(key) {
-    this.flags.has(key) ? this.flags.delete(key) : this.flags.add(key);
-    this.mirror();
-    this.flush(true);
-    this.emit();
-  }
-  async flush(withFlags) {
+  async flush() {
     if (!this.api) return;
     const batch = this.pending.slice();
-    if (!batch.length && !withFlags) return;
+    if (!batch.length) return;
     const body = { attempts: batch, sessions: this.sessions.slice(-3) };
-    if (withFlags) body.flags = [...this.flags];
     try {
       const r = await fetch("api/progress", {
         method: "POST",
@@ -168,7 +158,7 @@ export class Progress {
       await this.load();
       return;
     }
-    if (!query) { this.attempts = []; this.sessions = []; this.flags = new Set(); }
+    if (!query) { this.attempts = []; this.sessions = []; }
     else if (query.startsWith("topic=")) {
       const t = decodeURIComponent(query.slice(6));
       this.attempts = this.attempts.filter((a) => a.topic !== t);
@@ -183,30 +173,59 @@ export class Progress {
   async replaceAll(doc) {
     this.attempts = doc.attempts || [];
     this.sessions = doc.sessions || [];
-    this.flags = new Set(doc.flags || []);
     if (this.api) {
       await fetch("api/progress", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ replace: true, attempts: this.attempts, sessions: this.sessions, flags: [...this.flags] }),
+        body: JSON.stringify({ replace: true, attempts: this.attempts, sessions: this.sessions }),
       });
       await this.load();
     } else { this.mirror(); this.emit(); }
+  }
+
+  /* Reset follows wherever you are standing in the tree, so the scope arrives
+     as the exact set of questions underneath that node. The server stays dumb
+     about sections and topics; it just drops the keys it is handed. */
+  async removeKeys(keys) {
+    const gone = new Set(keys);
+    const kept = this.attempts.filter((a) => !gone.has(a.set + "#" + a.q_no));
+    const removed = this.attempts.length - kept.length;
+    this.attempts = kept;
+    if (this.api) {
+      try {
+        await fetch("api/progress", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remove: [...gone] }),
+        });
+      } catch {}
+      await this.load();
+    } else { this.mirror(); this.emit(); }
+    return removed;
   }
 }
 
 /* ---------------- the filter ---------------- */
 export const emptyFilter = () => ({
+  preset: "all",                       // all | standalone | grouped — filters everything below
   sections: [], topics: [], subtopics: [],
-  standalone: false, grouped: false,
-  limit: 20, order: "shuffle", mode: "unseen", style: "practice",
+  limit: 20, order: "shuffle", style: "practice",
 });
 
-export function presetTopics(shape, wantStandalone) {
-  return Object.keys(shape).filter((t) => shape[t].standalone === wantStandalone);
+/* Which topics a preset admits. "all" admits everything. */
+export function presetTopics(shape, preset) {
+  const names = Object.keys(shape);
+  if (preset === "standalone") return names.filter((t) => shape[t].standalone);
+  if (preset === "grouped") return names.filter((t) => !shape[t].standalone);
+  return names;
+}
+export function inPreset(shape, preset, topic) {
+  if (preset === "all") return true;
+  const sh = shape[topic];
+  return !!sh && (preset === "standalone" ? sh.standalone : !sh.standalone);
 }
 
-/* A pick you cannot see must not still be filtering: Topic is hidden until a
-   section or preset is on, Subtopic until a topic is. */
+/* A pick you cannot see must not still be filtering: each level drops the picks
+   below it that no longer belong. Changing the preset clears the lot — handled
+   by the caller, since that is a deliberate "start again". */
 export function prune(F, sets) {
   const all = Object.values(sets);
   if (F.sections.length)
@@ -216,27 +235,22 @@ export function prune(F, sets) {
       s.subtopic === st &&
       (!F.sections.length || F.sections.includes(s.section)) &&
       (!F.topics.length || F.topics.includes(s.topic))));
-  if (!F.sections.length && !F.standalone && !F.grouped) { F.topics = []; F.subtopics = []; }
+  if (!F.sections.length) { F.topics = []; F.subtopics = []; }
   if (!F.topics.length) F.subtopics = [];
   return F;
 }
 
-export function matchingSets(F, sets) {
+export function matchingSets(F, sets, shape) {
   return Object.entries(sets).filter(([, s]) =>
+    (!shape || inPreset(shape, F.preset, s.topic)) &&
     (!F.sections.length || F.sections.includes(s.section)) &&
     (!F.topics.length || F.topics.includes(s.topic)) &&
     (!F.subtopics.length || F.subtopics.includes(s.subtopic)));
 }
 
-export function pool(F, data, progress) {
-  const seen = new Set(progress.attempts.map((a) => a.set + "#" + a.q_no));
+export function pool(F, data) {
   let qs = [];
-  for (const [slug] of matchingSets(F, data.sets)) qs = qs.concat(data.bySet[slug] || []);
-  if (F.mode === "unseen") qs = qs.filter((q) => !seen.has(qKey(q)));
-  else if (F.mode === "wrong") {
-    const bad = new Set(progress.attempts.filter((a) => a.correct === false).map((a) => a.set + "#" + a.q_no));
-    qs = qs.filter((q) => bad.has(qKey(q)));
-  } else if (F.mode === "flagged") qs = qs.filter((q) => progress.flags.has(qKey(q)));
+  for (const [slug] of matchingSets(F, data.sets, data.shape)) qs = qs.concat(data.bySet[slug] || []);
   return qs;
 }
 
@@ -268,4 +282,140 @@ export function buildBlocks(avail, F) {
     if (F.limit && n >= F.limit) break;
   }
   return { blocks: chosen, total: n };
+}
+
+/* ---------------- notes ----------------
+   Written during Practice, read from the Notes tab, and never touched by any
+   Reset. Its own file for exactly that reason: a different lifecycle from
+   progress, and nothing about wiping your attempts should cost you what you
+   wrote down while learning. */
+const LS_NOTES = "area.notes.v1";
+
+export class Notes {
+  constructor() {
+    this.map = {};          // "set#q_no" -> { text, at }
+    this.api = true;
+    this.listeners = new Set();
+  }
+  subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  emit() { this.listeners.forEach((f) => f()); }
+  get(key) { return (this.map[key] || {}).text || ""; }
+  get count() { return Object.keys(this.map).length; }
+
+  async load() {
+    try {
+      const r = await fetch("api/notes", { cache: "no-store" });
+      if (!r.ok) throw 0;
+      this.map = (await r.json()).notes || {};
+      this.api = true;
+      this.emit();
+      return;
+    } catch { this.api = false; }
+    try { this.map = JSON.parse(localStorage.getItem(LS_NOTES)) || {}; } catch {}
+    this.emit();
+  }
+  mirror() { try { localStorage.setItem(LS_NOTES, JSON.stringify(this.map)); } catch {} }
+
+  async set(key, text) {
+    text = (text || "").trim();
+    if (text) this.map[key] = { text, at: Date.now() };
+    else delete this.map[key];
+    this.mirror();
+    this.emit();
+    if (this.api) {
+      try {
+        await fetch("api/notes", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, text }),
+        });
+      } catch { /* the local copy still has it */ }
+    }
+  }
+}
+
+/* ---------------- progress as a hierarchy ----------------
+   A question counts as done only once answered correctly in a Test. Practice
+   never writes an attempt at all, so it cannot move this.
+
+   Every number is a rollup: a subtopic counts its own questions, a topic is the
+   sum of its subtopics, a section the sum of its topics. Nothing is tracked
+   separately at a higher level, so the levels can never disagree. */
+export function masteredKeys(attempts) {
+  const done = new Set();
+  for (const a of attempts)
+    if (a.correct === true && a.style !== "practice") done.add(a.set + "#" + a.q_no);
+  return done;
+}
+
+export function buildTree(data, attempts) {
+  const done = masteredKeys(attempts);
+  const root = { name: "Everything", total: 0, done: 0, kind: "root", children: new Map() };
+
+  for (const q of data.questions) {
+    const meta = data.sets[q.set] || {};
+    const path = [meta.section || "—", meta.topic || "—", meta.subtopic || q.set];
+    const hit = done.has(q.set + "#" + q.q_no);
+    let node = root;
+    node.total++; if (hit) node.done++;
+    for (let d = 0; d < path.length; d++) {
+      const name = path[d];
+      let child = node.children.get(name);
+      if (!child)
+        node.children.set(name, (child = {
+          name, total: 0, done: 0, children: new Map(),
+          kind: ["section", "topic", "subtopic"][d],
+          path: path.slice(0, d + 1),
+        }));
+      child.total++; if (hit) child.done++;
+      node = child;
+    }
+  }
+  const sortKids = (n) => {
+    n.kids = [...n.children.values()].sort((a, b) => a.name.localeCompare(b.name));
+    n.kids.forEach(sortKids);
+    return n;
+  };
+  return sortKids(root);
+}
+
+export function nodeAt(tree, path) {
+  let n = tree;
+  for (const name of path) {
+    const next = (n.kids || []).find((k) => k.name === name);
+    if (!next) return n;
+    n = next;
+  }
+  return n;
+}
+
+/* Every question sitting under a node — what a Reset at that node would clear. */
+export function keysUnder(data, path) {
+  const [section, topic, subtopic] = path;
+  const out = [];
+  for (const q of data.questions) {
+    const m = data.sets[q.set] || {};
+    if (section && (m.section || "—") !== section) continue;
+    if (topic && (m.topic || "—") !== topic) continue;
+    if (subtopic && (m.subtopic || q.set) !== subtopic) continue;
+    out.push(q.set + "#" + q.q_no);
+  }
+  return out;
+}
+
+/* Notes for the book view: every note under a topic, in question order. */
+export function notesUnder(data, notes, path) {
+  const [section, topic] = path;
+  const rows = [];
+  for (const q of data.questions) {
+    const key = qKey(q);
+    const note = notes.map[key];
+    if (!note) continue;
+    const m = data.sets[q.set] || {};
+    if (section && (m.section || "—") !== section) continue;
+    if (topic && (m.topic || "—") !== topic) continue;
+    rows.push({ key, q, note, section: m.section, topic: m.topic, subtopic: m.subtopic });
+  }
+  rows.sort((a, b) =>
+    (a.subtopic || "").localeCompare(b.subtopic || "") || a.q.q_no - b.q.q_no);
+  return rows;
 }

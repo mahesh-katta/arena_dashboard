@@ -1,55 +1,85 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { PACE, pace, uid, qKey, imgSrc, pdfSrc } from "./store.js";
+import { pace, uid, qKey, imgSrc, pdfSrc } from "./store.js";
 
 const CALM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const LETTERS = ["a", "b", "c", "d", "e"];
 
-function Clock({ startedAt, hidden }) {
+/* Remounted for each question (see the key where it is used), so it always
+   reads the time spent on the one in front of you. */
+function Clock({ from }) {
   const [s, setS] = useState(0);
   useEffect(() => {
-    setS(0);
-    const t = setInterval(() => setS((performance.now() - startedAt.current) / 1000), 100);
+    const tick = () => setS((performance.now() - from.current) / 1000);
+    tick();
+    const t = setInterval(tick, 100);
     return () => clearInterval(t);
-  }, [startedAt, hidden]);
-  if (hidden) return <div className="clock quiet num" title="Still timed — just not shown">••</div>;
+  }, [from]);
   return <div className={"clock num " + pace(s)}>{s.toFixed(1)}s</div>;
 }
 
-/* One question card. `state` is null until it is resolved, then
-   {chosen, correct, secs, revealed, skipped}. */
-function QCard({ q, idx, state, here, practice, flagged, alreadyRetried, onAnswer, onSkip, onReveal, onRetry, onFlag, solo, config }) {
-  const [showSol, setShowSol] = useState(false);
-  useEffect(() => {
-    // in practice, a wrong answer opens the working straight away
-    if (practice && state && state.correct === false) setShowSol(true);
-  }, [state, practice]);
+/* A note box that saves itself: typing is local, the write lands a beat after
+   you stop. Practice exists to produce these, so it should never feel like a
+   form you have to submit. */
+function NoteBox({ value, onSave }) {
+  const [text, setText] = useState(value || "");
+  const [saved, setSaved] = useState(false);
+  const t = useRef(null);
+  useEffect(() => setText(value || ""), [value]);
+  const change = (v) => {
+    setText(v);
+    setSaved(false);
+    clearTimeout(t.current);
+    t.current = setTimeout(async () => { await onSave(v); setSaved(true); }, 600);
+  };
+  return (
+    <div className="notewrap">
+      <label>
+        Note
+        {saved && <span className="savedcue">saved</span>}
+      </label>
+      <textarea rows={2} value={text} placeholder="What tripped you up? The trick to remember?"
+                onChange={(e) => change(e.target.value)}
+                onBlur={() => { clearTimeout(t.current); onSave(text).then(() => setSaved(true)); }} />
+    </div>
+  );
+}
 
+function QCard({ q, idx, state, here, practice, note, solo, config, onAnswer, onSkip, onReveal, onNote }) {
+  const [showSol, setShowSol] = useState(false);
   const keys = LETTERS.filter((k) => q.options[k] != null);
   const longest = Math.max(0, ...keys.map((k) => String(q.options[k]).length));
-  const done = !!state;
-  const marked = done && practice;          // test mode withholds right/wrong
+  const answer = (q.answer || "").toLowerCase();
+  const st = state || {};
+  const finished = practice ? !!(st.solved || st.skipped || st.revealed) : !!st.done;
+
+  useEffect(() => { if (practice && (st.revealed || st.solved) && st.tries && st.tries.length > 1) setShowSol(true); },
+           [st.revealed, st.solved]);
 
   return (
-    <div className={"qitem" + (done ? " done" : "") + (here ? " here" : "") + (state && state.skipped ? " skipped" : "")}
+    <div className={"qitem" + (finished ? " done" : "") + (here ? " here" : "") + (st.skipped ? " skipped" : "")}
          style={!CALM ? { animationDelay: Math.min(idx * 45, 220) + "ms" } : undefined}>
       {solo && q.dirs && <div className="dirs"><b>Instructions</b>{q.dirs}</div>}
       <div className="qhead">
         <span className="qnum">Q{q.q_no}</span>
         <div className="qtext">{q.stem || "(question text not captured — open the PDF)"}</div>
-        <button className={"flag" + (flagged ? " on" : "")} title={flagged ? "Unflag" : "Flag for later"}
-                onClick={onFlag}>{flagged ? "★" : "☆"}</button>
       </div>
 
       <div className={"opts" + (longest <= 34 ? " row" : "")}>
         {keys.map((k) => {
-          const key = (q.answer || "").toLowerCase();
           let cls = "opt";
-          if (done && state.chosen === k) cls += " picked";
-          if (marked && key && k === key) cls += " right";
-          if (marked && state.chosen === k && state.correct === false) cls += " wrong";
-          if (done && !marked && state.chosen === k) cls += " chosen";
+          if (practice) {
+            const tried = (st.tries || []).includes(k);
+            if (st.solved && k === answer) cls += " right";
+            else if (tried) cls += " wrong";
+            if (st.revealed && k === answer) cls += " right";
+          } else if (st.done) {
+            if (st.chosen === k) cls += " chosen picked";
+          }
+          const dead = practice
+            ? st.solved || st.revealed || st.skipped || (st.tries || []).includes(k)
+            : !!st.done;
           return (
-            <button key={k} className={cls} disabled={done} onClick={() => onAnswer(k)}>
+            <button key={k} className={cls} disabled={dead} onClick={() => onAnswer(k)}>
               <span className="key">{k.toUpperCase()}</span>
               <span>{q.options[k]}</span>
             </button>
@@ -58,66 +88,68 @@ function QCard({ q, idx, state, here, practice, flagged, alreadyRetried, onAnswe
       </div>
 
       <div className="qfoot">
-        {!done && (
+        {practice ? (
           <>
-            {practice && q.solution && (
-              <button className="ghost" onClick={onReveal}>Show solution</button>
+            {st.solved && <span className="pill right">
+              Got it{st.tries && st.tries.length > 1 ? " — after " + st.tries.length + " tries" : " first time"}
+            </span>}
+            {st.revealed && <span className="pill na">Answer shown — {(q.answer || "").toUpperCase()}</span>}
+            {st.skipped && <span className="pill na">Skipped</span>}
+            {(st.solved || st.revealed) && st.secs != null && (
+              <span className="tchip" style={{ color: "var(--" + pace(st.secs) + ")" }}>{st.secs.toFixed(1)}s</span>
             )}
-            <button className="ghost" onClick={onSkip}>Skip</button>
+            {!finished && (
+              <>
+                <button className="ghost" onClick={onReveal}>Show me</button>
+                <button className="ghost" onClick={onSkip}>Skip</button>
+              </>
+            )}
+            {q.solution && finished && (
+              <button className="ghost" onClick={() => setShowSol((v) => !v)}>
+                {showSol ? "Hide working" : "Working"}
+              </button>
+            )}
+            {config.pdfs && finished && <a className="srclink" href={pdfSrc(q.set)} target="_blank" rel="noreferrer">PDF</a>}
+          </>
+        ) : (
+          <>
+            {st.done && !st.skipped && <span className="pill na">Answered {st.chosen.toUpperCase()}</span>}
+            {st.skipped && <span className="pill na">Skipped</span>}
+            {!st.done && <button className="ghost" onClick={onSkip}>Skip</button>}
           </>
         )}
-        {done && state.skipped && <span className="pill na">Skipped</span>}
-        {done && state.revealed && <span className="pill na">Solution shown</span>}
-        {done && !state.skipped && !state.revealed && (
-          marked ? (
-            <span className={"pill " + (state.correct === null ? "na" : state.correct ? "right" : "wrong")}>
-              {state.correct === null ? "Answer not in the PDF"
-                : state.correct ? "Correct"
-                : "Wrong — answer " + (q.answer || "").toUpperCase()}
-            </span>
-          ) : <span className="pill na">Answered {state.chosen.toUpperCase()}</span>
-        )}
-        {done && !state.skipped && (
-          <span className="tchip" style={{ color: "var(--" + pace(state.secs) + ")" }}>{state.secs.toFixed(1)}s</span>
-        )}
-        {done && practice && state.correct === false && !state.retried && !alreadyRetried && (
-          <button className="ghost" onClick={onRetry}>Try again</button>
-        )}
-        {done && practice && q.solution && (
-          <button className="ghost" onClick={() => setShowSol((v) => !v)}>
-            {showSol ? "Hide solution" : "Solution"}
-          </button>
-        )}
-        {done && config.pdfs && (
-          <a className="srclink" href={pdfSrc(q.set)} target="_blank" rel="noreferrer">PDF</a>
-        )}
       </div>
-      {done && practice && showSol && q.solution && <div className="sol">{q.solution}</div>}
+
+      {practice && showSol && q.solution && <div className="sol">{q.solution}</div>}
+      {practice && finished && <NoteBox value={note} onSave={onNote} />}
     </div>
   );
 }
 
-export default function Runner({ data, progress, F, session, onFinish, onEnd }) {
+export default function Runner({ data, progress, notes, F, session, onFinish }) {
   const practice = F.style === "practice";
   const [bi, setBi] = useState(0);
-  const [states, setStates] = useState({});        // qKey -> state
-  const [retried, setRetried] = useState(() => new Set());
+  const [states, setStates] = useState({});
   const [results, setResults] = useState([]);
   const segT = useRef(performance.now());
   const sidRef = useRef(null);
   const listRef = useRef(null);
 
-  if (!sidRef.current) {
+  /* A practice run writes nothing but notes: no session row, no attempts, no
+     mark on your progress. Only a test creates a session. */
+  if (!practice && !sidRef.current) {
     sidRef.current = "s_" + uid();
     progress.startSession({
-      sid: sidRef.current, started: Date.now(), planned: session.total, style: F.style,
+      sid: sidRef.current, started: Date.now(), planned: session.total, style: "test",
       filter: {
-        sections: F.sections.slice(), topics: F.topics.slice(), subtopics: F.subtopics.slice(),
-        standalone: F.standalone, grouped: F.grouped, mode: F.mode, order: F.order, limit: F.limit,
+        preset: F.preset, sections: F.sections.slice(),
+        topics: F.topics.slice(), subtopics: F.subtopics.slice(),
+        order: F.order, limit: F.limit,
       },
     });
   }
   const SID = sidRef.current;
+
   const blk = session.blocks[bi];
   const first = blk[0];
   const meta = data.sets[first.set] || {};
@@ -125,106 +157,116 @@ export default function Runner({ data, progress, F, session, onFinish, onEnd }) 
   const shared = blk.length > 1 || !!first.passage || hasImg;
   const stack = blk.length === 1 && hasImg && !first.passage;
 
-  const resolved = blk.filter((q) => states[qKey(q)]).length;
-  const blockDone = resolved >= blk.length;
-  const answeredCount = results.length;
+  const isFinished = (q) => {
+    const s = states[qKey(q)];
+    return !!s && (practice ? s.solved || s.skipped || s.revealed : s.done);
+  };
+  const openIdx = blk.findIndex((q) => !isFinished(q));
+  const blockDone = openIdx === -1;
 
   useEffect(() => { segT.current = performance.now(); }, [bi]);
 
-  const settle = useCallback((q, patch) => {
-    const secs = (performance.now() - segT.current) / 1000;
+  const elapsed = () => {
+    const s = (performance.now() - segT.current) / 1000;
     segT.current = performance.now();
-    const st = { secs: +secs.toFixed(1), retried: retried.has(qKey(q)), ...patch };
-    setStates((s) => ({ ...s, [qKey(q)]: st }));
-    // a second go at the same question is for learning, not for the record:
-    // the first attempt is what the stats are built on
-    if (!patch.skipped && !retried.has(qKey(q))) {
-      const key = (q.answer || "").toLowerCase();
-      const rec = {
-        id: uid(), sid: SID, set: q.set, q_no: q.q_no,
-        topic: (data.sets[q.set] || {}).topic || "", section: (data.sets[q.set] || {}).section || "",
-        chosen: patch.chosen || "-", answer: key.toUpperCase(),
-        correct: patch.revealed ? null : patch.correct,
-        secs: st.secs, at: Date.now(), style: F.style, revealed: !!patch.revealed,
-      };
-      progress.record(rec);
-      setResults((r) => r.concat(rec));
-    }
-    return st;
-  }, [SID, data.sets, progress, F.style, retried]);
+    return +s.toFixed(1);
+  };
+
+  const recordTest = useCallback((q, patch) => {
+    const key = (q.answer || "").toLowerCase();
+    const rec = {
+      id: uid(), sid: SID, set: q.set, q_no: q.q_no,
+      topic: meta.topic || (data.sets[q.set] || {}).topic || "",
+      section: (data.sets[q.set] || {}).section || "",
+      subtopic: (data.sets[q.set] || {}).subtopic || "",
+      chosen: patch.chosen || "-", answer: key.toUpperCase(),
+      correct: patch.skipped ? null : key ? patch.chosen === key : null,
+      secs: patch.secs, at: Date.now(), style: "test",
+    };
+    progress.record(rec);
+    setResults((r) => r.concat(rec));
+    return rec;
+  }, [SID, data.sets, progress, meta.topic]);
 
   const answer = (q, k) => {
-    if (states[qKey(q)]) return;
-    const key = (q.answer || "").toLowerCase();
-    settle(q, { chosen: k, correct: key ? k === key : null });
+    const s = states[qKey(q)] || {};
+    if (practice) {
+      if (s.solved || s.revealed || s.skipped) return;
+      const right = k === (q.answer || "").toLowerCase();
+      const tries = (s.tries || []).concat(k);
+      // the clock only stops when you get there; a wrong pick keeps it running
+      setStates((m) => ({ ...m, [qKey(q)]: right ? { tries, solved: true, secs: elapsed() } : { tries } }));
+    } else {
+      if (s.done) return;
+      const secs = elapsed();
+      setStates((m) => ({ ...m, [qKey(q)]: { done: true, chosen: k, secs } }));
+      recordTest(q, { chosen: k, secs });
+    }
   };
-  const skip = (q) => { if (!states[qKey(q)]) settle(q, { skipped: true, chosen: "-" }); };
-  const reveal = (q) => { if (!states[qKey(q)]) settle(q, { revealed: true, chosen: "-", correct: null }); };
-  const retry = (q) => {
-    setRetried((r) => new Set(r).add(qKey(q)));
-    setStates((s) => { const n = { ...s }; delete n[qKey(q)]; return n; });
-    segT.current = performance.now();
+  const skip = (q) => {
+    if (isFinished(q)) return;
+    const secs = elapsed();
+    setStates((m) => ({ ...m, [qKey(q)]: { ...(m[qKey(q)] || {}), skipped: true, done: true, chosen: "-", secs } }));
+    if (!practice) recordTest(q, { skipped: true, chosen: "-", secs });
+  };
+  const reveal = (q) => {
+    if (isFinished(q)) return;
+    setStates((m) => ({ ...m, [qKey(q)]: { ...(m[qKey(q)] || {}), revealed: true, secs: elapsed() } }));
   };
 
   const next = () => {
     if (bi + 1 < session.blocks.length) {
       setBi(bi + 1);
       scrollTo({ top: 0, behavior: CALM ? "auto" : "smooth" });
-    } else finish();
+    } else end();
   };
-  const finish = () => {
-    progress.endSession(SID, results.length);
-    onFinish({ results, style: F.style, sid: SID });
+  const end = () => {
+    if (!practice) progress.endSession(SID, results.length);
+    onFinish({ results, style: F.style, sid: SID, notesWritten: notes.count });
   };
 
-  /* keyboard: A–E answer, S solution, F flag, K skip, Enter continue */
   useEffect(() => {
     const onKey = (e) => {
       if (/input|select|textarea/i.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
-      const open = blk.find((q) => !states[qKey(q)]);
-      const current = open || [...blk].reverse().find((q) => states[qKey(q)]);
+      const open = blk[openIdx];
       if (/^[a-e]$/.test(k) && open) {
-        const keys = LETTERS.filter((x) => open.options[x] != null);
-        if (keys.includes(k)) { e.preventDefault(); answer(open, k); }
+        if (LETTERS.filter((x) => open.options[x] != null).includes(k)) { e.preventDefault(); answer(open, k); }
       } else if (/^[1-5]$/.test(k) && open) {
-        const keys = LETTERS.filter((x) => open.options[x] != null);
-        const key = keys[+k - 1];
+        const key = LETTERS.filter((x) => open.options[x] != null)[+k - 1];
         if (key) { e.preventDefault(); answer(open, key); }
       } else if (k === "k" && open) { e.preventDefault(); skip(open); }
-      else if (k === "f" && current) { e.preventDefault(); progress.toggleFlag(qKey(current)); }
       else if (k === "s" && open && practice) { e.preventDefault(); reveal(open); }
       else if (k === "enter" && blockDone) { e.preventDefault(); next(); }
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, [blk, states, blockDone, practice, retried, settle]);
+  }, [blk, states, blockDone, practice, openIdx]);
 
-  /* keep the question you are on in view */
   useEffect(() => {
     if (!listRef.current) return;
     const el = listRef.current.querySelector(".qitem.here");
-    if (el && answeredCount) el.scrollIntoView({ block: "center", behavior: CALM ? "auto" : "smooth" });
-  }, [resolved]);
+    if (el && Object.keys(states).length) el.scrollIntoView({ block: "center", behavior: CALM ? "auto" : "smooth" });
+  }, [openIdx]);
 
-  const openIdx = blk.findIndex((q) => !states[qKey(q)]);
-  const progressFrac = Object.keys(states).length / session.total;
+  const settled = blk.filter(isFinished).length;
+  const frac = (bi + settled / blk.length) / session.blocks.length;
 
   return (
     <>
-      <div className="topline" style={{ width: Math.min(1, progressFrac) * 100 + "%" }} />
+      <div className="topline" style={{ width: Math.min(1, frac) * 100 + "%" }} />
       <div className="runbar">
-        <Clock startedAt={segT} hidden={practice} />
+        <Clock key={bi + ":" + openIdx} from={segT} />
         <div className="prog">
           <div className="crumb">
             <b>{meta.topic || ""}</b> · {meta.subtopic || first.set}
-            {blk.length > 1 && <span className="grp">{blk.length} questions on this {first.img ? "chart" : "passage"}</span>}
+            {blk.length > 1 && <span className="grp">{blk.length} on this {first.img ? "chart" : "passage"}</span>}
             <span className={"mode " + F.style}>{practice ? "Practice" : "Test"}</span>
           </div>
-          <div className="bar"><i style={{ width: Math.min(1, progressFrac) * 100 + "%" }} /></div>
+          <div className="bar"><i style={{ width: Math.min(1, frac) * 100 + "%" }} /></div>
         </div>
         <div className="crumb num">set {bi + 1} / {session.blocks.length}</div>
-        <button className="ghost" onClick={() => { progress.endSession(SID, results.length); onEnd({ results, style: F.style, sid: SID }); }}>End</button>
+        <button className="ghost" onClick={end}>End</button>
       </div>
 
       <div className={"blockwrap" + (stack ? " stack" : shared ? "" : " solo")}>
@@ -233,8 +275,7 @@ export default function Runner({ data, progress, F, session, onFinish, onEnd }) 
             {first.dirs && <div className="dirs"><b>Instructions</b>{first.dirs}</div>}
             {first.passage && <div className="ptext">{first.passage}</div>}
             {(first.img || []).map((src) => (
-              <img key={src} src={imgSrc(src)} alt="Stimulus for this set" loading="lazy" decoding="async"
-                   onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement("p"), { className: "note", textContent: "Image missing — open the PDF." })); }} />
+              <img key={src} src={imgSrc(src)} alt="Stimulus for this set" loading="lazy" decoding="async" />
             ))}
             {hasImg && (
               <button className="ghost" style={{ marginTop: 10 }}
@@ -246,18 +287,17 @@ export default function Runner({ data, progress, F, session, onFinish, onEnd }) 
           {blk.map((q, i) => (
             <QCard key={qKey(q)} q={q} idx={i} solo={!shared} config={data.config}
                    state={states[qKey(q)]} here={i === openIdx} practice={practice}
-                   flagged={progress.flags.has(qKey(q))} alreadyRetried={retried.has(qKey(q))}
-                   onAnswer={(k) => answer(q, k)} onSkip={() => skip(q)}
-                   onReveal={() => reveal(q)} onRetry={() => retry(q)}
-                   onFlag={() => progress.toggleFlag(qKey(q))} />
+                   note={notes.get(qKey(q))}
+                   onAnswer={(k) => answer(q, k)} onSkip={() => skip(q)} onReveal={() => reveal(q)}
+                   onNote={(text) => notes.set(qKey(q), text)} />
           ))}
         </div>
       </div>
 
       <div className="blockbar">
         <p className="hint">
-          <kbd>A</kbd>–<kbd>E</kbd> answer · <kbd>K</kbd> skip · <kbd>F</kbd> flag
-          {practice && <> · <kbd>S</kbd> solution</>} · <kbd>Enter</kbd> continue
+          <kbd>A</kbd>–<kbd>E</kbd> answer · <kbd>K</kbd> skip
+          {practice && <> · <kbd>S</kbd> show me</>} · <kbd>Enter</kbd> continue
         </p>
         <button className="next" disabled={!blockDone} onClick={next}>
           {bi + 1 < session.blocks.length ? "Next set" : "Finish"}

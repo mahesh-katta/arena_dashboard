@@ -17,8 +17,13 @@
  *     /data/...             the question bank and images
  *     GET    /api/config    what this install has (are the PDFs here?)
  *     GET    /api/progress  the whole progress document
- *     POST   /api/progress  merge in sessions, attempts and flags (idempotent)
+ *     POST   /api/progress  merge in sessions and attempts (idempotent), or
+ *                           drop an exact set of questions (a scoped reset)
  *     DELETE /api/progress  wipe, or drop one topic / one session
+ *     GET    /api/notes     every note
+ *     POST   /api/notes     write or clear one note
+ *
+ * Notes live in their own file. Reset, at any scope, never touches them.
  */
 import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
@@ -31,7 +36,8 @@ const ROOT = path.dirname(APP);
 const DIST = path.join(APP, "dist");
 const DATA = path.join(ROOT, "data");
 const STORE = path.join(ROOT, "progress.json");
-const EMPTY = { version: 1, sessions: [], attempts: [], flags: [] };
+const NOTES = path.join(ROOT, "notes.json");
+const EMPTY = { version: 1, sessions: [], attempts: [] };
 
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -51,17 +57,27 @@ async function readStore() {
     const d = JSON.parse(await readFile(STORE, "utf8"));
     return { ...EMPTY, ...d };
   } catch {
-    return { ...EMPTY, sessions: [], attempts: [], flags: [] };
+    return { ...EMPTY, sessions: [], attempts: [] };
   }
 }
 
-async function writeStore(doc) {
-  // atomic: a crash mid-write must not shred the history
-  if (existsSync(STORE)) await copyFile(STORE, STORE + ".bak");
-  const tmp = path.join(ROOT, ".progress-" + process.pid + "-" + Date.now() + ".tmp");
-  await writeFile(tmp, JSON.stringify(doc));
-  await rename(tmp, STORE);
+async function readNotes() {
+  try {
+    const d = JSON.parse(await readFile(NOTES, "utf8"));
+    return { version: 1, notes: d.notes || {} };
+  } catch {
+    return { version: 1, notes: {} };
+  }
 }
+
+/* atomic: a crash mid-write must not shred either file */
+async function writeJSON(file, doc) {
+  if (existsSync(file)) await copyFile(file, file + ".bak");
+  const tmp = path.join(ROOT, "." + path.basename(file) + "-" + process.pid + "-" + Date.now() + ".tmp");
+  await writeFile(tmp, JSON.stringify(doc));
+  await rename(tmp, file);
+}
+const writeStore = (doc) => writeJSON(STORE, doc);
 
 const json = (res, obj, code = 200) => {
   const body = JSON.stringify(obj);
@@ -109,6 +125,24 @@ const server = createServer(async (req, res) => {
       });
     }
 
+    if (p === "/api/notes") {
+      if (req.method === "GET") return json(res, await serial(readNotes));
+      if (req.method === "POST") {
+        const { key, text } = await body(req);
+        if (!key) return json(res, { ok: false, error: "no key" }, 400);
+        return json(res, await serial(async () => {
+          const doc = await readNotes();
+          const clean = (text || "").trim();
+          if (clean) doc.notes[key] = { text: clean, at: Date.now() };
+          else delete doc.notes[key];
+          await writeJSON(NOTES, doc);
+          return { ok: true, notes: Object.keys(doc.notes).length };
+        }));
+      }
+      res.writeHead(405).end();
+      return;
+    }
+
     if (p === "/api/progress") {
       if (req.method === "GET") return json(res, await serial(readStore));
 
@@ -121,10 +155,19 @@ const server = createServer(async (req, res) => {
               version: 1,
               sessions: payload.sessions || [],
               attempts: payload.attempts || [],
-              flags: payload.flags || [],
             };
             await writeStore(doc);
             return { ok: true, replaced: true, attempts: doc.attempts.length };
+          }
+          // a reset scoped to a node in the tree: the client works out which
+          // questions sit under it and hands over the exact keys, so the server
+          // never needs to know what a section or a topic is
+          if (payload.remove) {
+            const gone = new Set(payload.remove);
+            const before = doc.attempts.length;
+            doc.attempts = doc.attempts.filter((a) => !gone.has(a.set + "#" + a.q_no));
+            await writeStore(doc);
+            return { ok: true, removed: before - doc.attempts.length, attempts: doc.attempts.length };
           }
           // attempts carry an id, so a retried request cannot double-count
           const have = new Set(doc.attempts.map((a) => a.id));
@@ -139,7 +182,6 @@ const server = createServer(async (req, res) => {
           for (const s of payload.sessions || [])
             if (s.sid) sess.set(s.sid, { ...(sess.get(s.sid) || {}), ...s });
           doc.sessions = [...sess.values()];
-          if (payload.flags != null) doc.flags = payload.flags;   // the client owns this list
           await writeStore(doc);
           return { ok: true, added, attempts: doc.attempts.length };
         }));
@@ -155,7 +197,7 @@ const server = createServer(async (req, res) => {
           else if (sid) {
             doc.attempts = doc.attempts.filter((a) => a.sid !== sid);
             doc.sessions = doc.sessions.filter((s) => s.sid !== sid);
-          } else doc = { version: 1, sessions: [], attempts: [], flags: [] };
+          } else doc = { version: 1, sessions: [], attempts: [] };
           await writeStore(doc);
           return { ok: true, removed: before - doc.attempts.length, attempts: doc.attempts.length };
         }));
@@ -196,6 +238,7 @@ const doc = await readStore();
 console.log("Area Drill");
 console.log("  http://localhost:" + port);
 console.log("  data     : " + DATA);
-console.log("  progress : " + STORE + "  (" + doc.attempts.length + " attempts, " + doc.flags.length + " flagged)");
+console.log("  progress : " + STORE + "  (" + doc.attempts.length + " attempts)");
+console.log("  notes    : " + NOTES + "  (" + Object.keys((await readNotes()).notes).length + " written)");
 console.log("\nKeep this window open. Press Ctrl+C to stop.\n");
 server.listen(port, "0.0.0.0");

@@ -274,3 +274,147 @@ kbd{font-family:"IBM Plex Mono"; font-size:11px; background:var(--surface-2);
   *,*::before,*::after{animation-duration:.01ms!important; transition-duration:.01ms!important}
   html{scroll-behavior:auto}
 }
+
+/* ---------- landing ---------- */
+.landing{max-width:860px; margin:40px auto 0; text-align:center}
+.landing h1{font-size:30px; margin-bottom:26px}
+.modes{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+@media(max-width:720px){ .modes{grid-template-columns:1fr} }
+.modecard{
+  display:flex; flex-direction:column; gap:8px; text-align:left;
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:22px 22px 18px;
+  transition:border-color var(--t) var(--ease), transform .12s var(--ease), box-shadow var(--t) var(--ease);
+}
+.modecard:hover{transform:translateY(-2px)}
+.modecard b{font-family:Archivo; font-size:22px; letter-spacing:-.02em}
+.modecard span{font-size:13.5px; color:var(--muted); line-height:1.55}
+.modecard em{font-style:normal; font-size:11.5px; color:var(--faint); font-family:"IBM Plex Mono"}
+.modecard.practice:hover{border-color:var(--fast); box-shadow:0 0 0 3px var(--fast-soft)}
+.modecard.practice b{color:var(--fast)}
+.modecard.test:hover{border-color:var(--ok); box-shadow:0 0 0 3px var(--ok-soft)}
+.modecard.test b{color:var(--ok)}
+
+/* ---------- funnel ---------- */
+.funnel{max-width:720px; margin:0 auto}
+.funnel h2{margin:6px 0 4px}
+.step{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); margin-top:10px; overflow:hidden}
+.step.open{border-color:var(--accent)}
+.shead{display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer; user-select:none}
+.shead:hover{background:var(--surface-2)}
+.sn{
+  flex:none; width:22px; height:22px; border-radius:50%; display:grid; place-items:center;
+  font-size:11px; font-weight:600; font-family:"IBM Plex Mono";
+  background:var(--surface-2); color:var(--muted);
+}
+.step.done .sn{background:var(--fast); color:#fff}
+.step.open .sn{background:var(--accent); color:#fff}
+.slab{font-weight:600; font-size:14px}
+.snote{margin-left:auto; font-size:12.5px; color:var(--faint); text-align:right;
+       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:55%}
+.sbody{display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--t-slow) var(--ease)}
+.step.open .sbody{grid-template-rows:1fr}
+.sbody>.inner{overflow:hidden; min-height:0}
+.sbody>.inner>*{margin:0 16px}
+.sbody>.inner>:last-child{margin-bottom:16px}
+.presets{display:grid; gap:8px; margin-bottom:12px!important}
+.presetopt{text-align:left; background:var(--surface-2); border:1px solid var(--line);
+           border-radius:9px; padding:10px 12px; transition:border-color var(--t) var(--ease)}
+.presetopt b{display:block; font-size:14px}
+.presetopt small{display:block; color:var(--faint); font-size:11.5px; margin-top:1px}
+.presetopt:hover{border-color:var(--accent)}
+.presetopt.on{background:var(--accent-soft); border-color:var(--accent)}
+.presetopt.on b{color:var(--accent)}
+.funfoot{display:flex; align-items:center; gap:16px; margin-top:18px; flex-wrap:wrap}
+.funfoot .go{flex:1; min-width:240px; margin:0}
+
+/* ---------- progress tree ---------- */
+.phead{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+.crumbs{display:flex; align-items:center; gap:4px; flex-wrap:wrap}
+.crumb-btn{background:none; border:0; padding:3px 6px; border-radius:6px; font-size:13.5px; color:var(--accent)}
+.crumb-btn:hover{background:var(--surface-2)}
+.crumbs .crumb-btn:last-child{color:var(--ink); font-weight:600}
+.csep{color:var(--faint); font-size:12px}
+.resetbadge{margin-left:auto; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+            background:var(--slow-soft); color:var(--slow); border-radius:99px; padding:3px 10px}
+.warnline{color:var(--slow)}
+.plist{display:flex; flex-direction:column; gap:1px; margin-top:16px;
+       background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:6px}
+.prow{display:flex; align-items:center; gap:14px; padding:10px 12px; border-radius:8px}
+.prow:hover{background:var(--surface-2)}
+.prow.selfrow{margin-top:16px; background:var(--slow-soft); border:1px solid var(--slow); gap:12px}
+.pname{flex:1; min-width:0; display:flex; align-items:center; gap:8px; background:none; border:0;
+       text-align:left; font-size:14px; padding:0; color:var(--ink)}
+.pname:disabled{cursor:default}
+.pname.big{font-weight:600; color:var(--slow)}
+.chev{color:var(--faint); font-size:10px; flex:none}
+.chev.leaf{opacity:.4}
+.pbar{width:160px; height:6px; border-radius:3px; background:var(--surface-2); overflow:hidden; flex:none}
+@media(max-width:700px){ .pbar{width:70px} }
+.pbar i{display:block; height:100%; background:var(--fast); transition:width var(--t-slow) var(--ease)}
+.pcount{font-size:12.5px; color:var(--muted); min-width:96px; text-align:right; flex:none}
+.pcount b{color:var(--ink)}
+.ppct{font-size:12.5px; color:var(--faint); min-width:44px; text-align:right; flex:none}
+.ghost.sm{font-size:11px; padding:3px 8px}
+.ghost.danger{border-color:var(--slow); color:var(--slow)}
+.danger.solid{background:var(--slow); color:#fff; border:0; border-radius:8px; padding:10px 18px; font-weight:600}
+.resettab{color:var(--slow)}
+.resettab[aria-selected="true"]{background:var(--slow-soft); color:var(--slow)}
+
+/* confirm sheet */
+.sheet{position:fixed; inset:0; background:rgba(8,10,14,.45); display:grid; place-items:center;
+       z-index:60; padding:20px; animation:fade .16s var(--ease)}
+@keyframes fade{from{opacity:0} to{opacity:1}}
+.sheetbox{background:var(--surface); border:1px solid var(--line); border-radius:14px;
+          padding:22px; max-width:460px; width:100%}
+.scopeline{font-family:"IBM Plex Mono"; font-size:14px; background:var(--surface-2);
+           border-radius:8px; padding:10px 12px; margin:10px 0 14px; word-break:break-word}
+.scopefacts{margin:0 0 18px; padding-left:18px; font-size:13.5px; color:var(--muted); line-height:1.8}
+.sheetfoot{display:flex; gap:10px; justify-content:flex-end}
+
+/* ---------- notes ---------- */
+.shelf{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px; margin-top:18px}
+.book{display:flex; flex-direction:column; gap:4px; text-align:left; background:var(--surface);
+      border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:9px; padding:14px 16px;
+      transition:transform .12s var(--ease), border-color var(--t) var(--ease)}
+.book:hover{transform:translateY(-2px); border-color:var(--accent)}
+.book .bsec{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--faint); font-weight:600}
+.book b{font-size:15px; font-family:Archivo; letter-spacing:-.01em}
+.book .bn{font-size:12px; color:var(--muted)}
+.pages{display:flex; flex-direction:column; gap:18px; margin-top:18px; max-width:760px}
+.page{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:20px 22px}
+.page header{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+.pageno{width:22px; height:22px; border-radius:50%; background:var(--surface-2); color:var(--muted);
+        display:grid; place-items:center; font-size:11px; font-weight:600; flex:none}
+.page header .qnum{margin-left:auto}
+.page img{max-width:100%; border-radius:6px; background:#fff; margin-bottom:12px; display:block}
+.ptext.small{font-size:12.5px; max-height:150px; overflow:auto; background:var(--surface-2);
+             border-radius:8px; padding:10px 12px}
+.answerline{font-size:13px; color:var(--muted); margin-top:10px}
+.answerline b{color:var(--fast)}
+.notebody{position:relative; margin-top:14px; padding:14px 16px; white-space:pre-wrap; font-size:14.5px;
+          line-height:1.6; background:var(--ok-soft); border-radius:9px; cursor:text}
+.notebody .editcue{position:absolute; top:8px; right:12px; font-size:11px; color:var(--faint); opacity:0;
+                   transition:opacity var(--t) var(--ease)}
+.notebody:hover .editcue{opacity:1}
+.noteedit{margin-top:14px}
+.noteedit textarea{width:100%; font:inherit; font-size:14.5px; line-height:1.6; color:var(--ink);
+                   background:var(--surface-2); border:1px solid var(--accent); border-radius:9px; padding:12px}
+.noterow{display:flex; gap:8px; justify-content:flex-end; margin-top:8px}
+.solid{background:var(--accent); color:#fff; border:0; border-radius:8px; padding:8px 16px; font-weight:600}
+
+/* the note box under a practice question */
+.notewrap{margin-top:14px}
+.notewrap label{display:flex; align-items:center; gap:8px; font-size:10.5px; font-weight:600;
+                letter-spacing:.07em; text-transform:uppercase; color:var(--faint); margin-bottom:5px}
+.savedcue{color:var(--fast); letter-spacing:0; text-transform:none; font-weight:500; font-size:11px}
+.notewrap textarea{width:100%; font:inherit; font-size:14px; line-height:1.55; color:var(--ink);
+                   background:var(--surface-2); border:1px solid var(--line); border-radius:9px;
+                   padding:10px 12px; resize:vertical;
+                   transition:border-color var(--t) var(--ease)}
+.notewrap textarea:focus{border-color:var(--accent); outline:none}
+
+.brand{background:none; border:0; padding:0; font-family:Archivo; font-weight:700; font-size:16px;
+       letter-spacing:-.02em; color:var(--ink)}
+.brand:hover span{text-decoration:underline}
+.doneprac{max-width:560px}
