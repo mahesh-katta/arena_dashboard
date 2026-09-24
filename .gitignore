@@ -1,6 +1,7 @@
 node_modules/
 *.log
 .DS_Store
+dist/app.js.map
 # progress.json lives outside this repo on purpose, but just in case:
 progress.json
 progress.json.bak

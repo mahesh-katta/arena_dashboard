@@ -78,7 +78,7 @@ Edit `src/`, save, refresh the browser. When you're done, build once without
 `--watch` so `dist/` is the minified version, then commit.
 
 ```sh
-node build.mjs
+node build.mjs          # only if you were not running --watch
 git add -A && git commit -m "what changed" && git push
 ```
 
@@ -98,13 +98,13 @@ don't appear.
 `src/` is React with JSX, which no browser understands. `build.mjs` runs esbuild
 over it: it follows the imports from `src/main.jsx`, pulls in React itself, turns
 the JSX into plain JavaScript, and writes the lot into one file, `dist/app.js`.
-It also copies `src/styles.css` across. That one file is what the browser loads.
+It also copies `src/styles.css` across. That one file is what the browser loads,
+and the one your friend's `git pull` delivers.
 
-    node build.mjs            build once, minified - run this before committing
-    node build.mjs --watch    stay running, rebuild on every save, unminified
+    node build.mjs            build once
+    node build.mjs --watch    stay running, rebuild on every save
 
-`--watch` is for while you are working: save a file, refresh the browser, see the
-change. It leaves the output unminified so it is readable when something breaks.
-Without `--watch` it builds once and minifies, which is the version to commit -
-that is the file your friend's `git pull` delivers, and it is why he needs no
-Node toolchain of his own.
+Both produce the same minified output, so whatever is sitting in `dist/` at any
+moment is exactly what ships - there is no separate "build for real" step to
+forget before committing. `--watch` additionally writes a sourcemap, which is
+gitignored, so an error in the browser still points at the real line in `src/`.
