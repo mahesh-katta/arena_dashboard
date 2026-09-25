@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useReducer } from "react";
 import { createRoot } from "react-dom/client";
 import { Progress, Notes, loadData, emptyFilter, buildBlocks, keysUnder, masteredKeys, qKey } from "./store.js";
-import { askToPersist } from "./local.js";
 import Funnel, { Landing } from "./Funnel.jsx";
 import Runner from "./Runner.jsx";
 import ProgressView from "./Progress.jsx";
@@ -51,11 +50,7 @@ function App() {
       try {
         const r = await fetch("api/config");
         if (r.ok) setConfig(await r.json());
-      } catch {
-        // no server — this is the packaged build, so the only copy of your
-        // history is on this device. Ask the browser not to evict it.
-        askToPersist();
-      }
+      } catch {}
       try { setData(await loadData(setPct)); }
       catch (e) { setError(e.message); }
     })();

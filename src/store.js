@@ -1,10 +1,7 @@
 /* Data loading, progress persistence, and the filter model.
    Nothing in here renders; the views read from it. */
 
-import { idbGet, idbSet, migrateFromLocalStorage } from "./local.js";
-
 export const PACE = 36;                  // prelims pace: 60 min / 100 questions
-const LS_KEY = "area.progress.v1";
 
 export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -85,7 +82,7 @@ export async function loadData(onProgress) {
    An append-only log of attempts grouped into sessions, plus a flag list.
    Everything Stats shows is derived from it, never stored. It lives in
    progress.json beside the app, so the history is the same in every browser and
-   on your phone over wifi; localStorage is the fallback when the server is off. */
+   on your phone over wifi. The server is the record; without it nothing is saved. */
 export class Progress {
   constructor() {
     this.attempts = [];
@@ -109,30 +106,19 @@ export class Progress {
       this.emit();
       return;
     } catch (e) { this.api = false; }
-    // no server: this device is the only copy
-    const d = await migrateFromLocalStorage("progress", LS_KEY, { attempts: [], sessions: [] });
-    this.attempts = d.attempts || [];
-    this.sessions = d.sessions || [];
     this.emit();
-  }
-  mirror() {
-    if (this.api) return true;            // the server is the record
-    idbSet("progress", { attempts: this.attempts, sessions: this.sessions });
-    return true;
   }
   record(rec) {
     this.attempts.push(rec);
     this.pending.push(rec);
-    this.mirror();
     clearTimeout(this.flushT);
     this.flushT = setTimeout(() => this.flush(), 700);
     this.emit();
   }
-  startSession(s) { this.sessions.push(s); this.mirror(); }
+  startSession(s) { this.sessions.push(s); }
   endSession(sid, done) {
     const s = this.sessions.find((x) => x.sid === sid);
     if (s) { s.ended = Date.now(); s.done = done; }
-    this.mirror();
     this.flush();
   }
   async flush() {
@@ -165,7 +151,6 @@ export class Progress {
       this.attempts = this.attempts.filter((a) => a.sid !== v);
       this.sessions = this.sessions.filter((s) => s.sid !== v);
     }
-    this.mirror();
     this.emit();
   }
   async replaceAll(doc) {
@@ -177,7 +162,7 @@ export class Progress {
         body: JSON.stringify({ replace: true, attempts: this.attempts, sessions: this.sessions }),
       });
       await this.load();
-    } else { this.mirror(); this.emit(); }
+    } else this.emit();
   }
 
   /* Reset follows wherever you are standing in the tree, so the scope arrives
@@ -196,7 +181,7 @@ export class Progress {
         });
       } catch {}
       await this.load();
-    } else { this.mirror(); this.emit(); }
+    } else this.emit();
     return removed;
   }
 }
@@ -287,8 +272,6 @@ export function buildBlocks(avail, F) {
    Reset. Its own file for exactly that reason: a different lifecycle from
    progress, and nothing about wiping your attempts should cost you what you
    wrote down while learning. */
-const LS_NOTES = "area.notes.v1";
-
 export class Notes {
   constructor() {
     this.map = {};          // "set#q_no" -> { text, at }
@@ -309,19 +292,13 @@ export class Notes {
       this.emit();
       return;
     } catch { this.api = false; }
-    this.map = await migrateFromLocalStorage("notes", LS_NOTES, {});
     this.emit();
-  }
-  mirror() {
-    if (this.api) return;
-    idbSet("notes", this.map);
   }
 
   async set(key, text) {
     text = (text || "").trim();
     if (text) this.map[key] = { text, at: Date.now() };
     else delete this.map[key];
-    this.mirror();
     this.emit();
     if (this.api) {
       try {
