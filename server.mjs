@@ -1,4 +1,4 @@
-/* Arena Drill — serves the app and keeps your progress.
+/* Arena Dashboard — serves the app and keeps your progress.
  *
  *     node server.mjs            http://localhost:8000
  *     node server.mjs 8080       a different port
@@ -6,7 +6,7 @@
  * No dependencies: Node's own http and fs, nothing installed. Layout:
  *
  *     arena/
- *       app/                   this folder (the git repo — `git pull` updates the UI)
+ *       arena_dashboard/       this folder (the git repo — `git pull` updates the UI)
  *         dist/                the built app
  *         server.mjs
  *       data/                  one folder per question bank (set up once)
@@ -286,7 +286,7 @@ for (const b of BANKS) {
 if (!existsSync(path.join(DIST, "app.js")))
   console.log("dist/app.js is missing — run:  node build.mjs\n");
 
-console.log("Arena Drill");
+console.log("Arena Dashboard");
 console.log("  http://localhost:" + port);
 console.log("  data : " + DATA);
 for (const b of BANKS) {

@@ -121,7 +121,7 @@ function App() {
     return (
       <>
         <header className="top">
-          <span className="brand">Arena <span>Drill</span></span>
+          <span className="brand">Arena <span>Dashboard</span></span>
         </header>
         <main className="wrap"><BankPick banks={config.banks || DEFAULT_BANKS} /></main>
       </>
@@ -177,7 +177,7 @@ function App() {
   return (
     <>
       <header className="top">
-        <button className="brand" onClick={() => go("home")}>Arena <span>Drill</span></button>
+        <button className="brand" onClick={() => go("home")}>Arena <span>Dashboard</span></button>
         <button className="ghost bankchip" onClick={switchBank} title="Switch question bank">{bankName} ⇄</button>
         <div className="tabs" role="tablist">
           {MENU.map(([v, label]) => (

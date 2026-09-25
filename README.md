@@ -1,10 +1,10 @@
-# Arena Drill
+# Arena Dashboard
 
 Practice and timed tests over your own question bank.
 
 ```
 arena/
-  app/                    <- this repo. `git pull` here updates the whole interface.
+  arena_dashboard/        <- this repo. `git pull` here updates the whole interface.
     dist/                    the built app (committed on purpose — see below)
     src/                     the React source
     server.mjs               the server + progress/notes API (Node, no dependencies)
@@ -30,7 +30,7 @@ Double-click **start.command** (Mac) or **start.bat** (Windows), then open
 Or from a terminal:
 
 ```sh
-cd app && npm start           # or: node server.mjs 8080
+cd arena_dashboard && npm start           # or: node server.mjs 8080
 ```
 
 Node 18+ is the only thing to install, once, from <https://nodejs.org>. The
@@ -39,7 +39,7 @@ server has no dependencies — `npm install` is only needed to build from source
 ## Updating the interface
 
 ```sh
-cd app && git pull
+cd arena_dashboard && git pull
 ```
 
 That's the whole thing. The built files live in the repo, so there is no npm, no

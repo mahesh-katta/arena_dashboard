@@ -1,12 +1,13 @@
 #!/bin/bash
-# Double-click this to run Arena Drill.
-cd "$(dirname "$0")/.."
-echo "Starting Arena Drill…"
+# Double-click this to run Arena Dashboard.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+cd "$HERE/.."
+echo "Starting Arena Dashboard…"
 if command -v node >/dev/null 2>&1; then
-  node app/server.mjs 8000 &
+  node "$HERE/server.mjs" 8000 &
 elif command -v python3 >/dev/null 2>&1; then
   echo "(Node isn't installed — falling back to the Python server.)"
-  python3 app/serve.py 8000 &
+  python3 "$HERE/serve.py" 8000 &
 else
   echo "Neither Node nor Python 3 is installed."
   echo "Install Node from https://nodejs.org and run this again."
