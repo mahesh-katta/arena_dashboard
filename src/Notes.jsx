@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { notesUnder, imgSrc, pdfSrc, qKey } from "./store.js";
+import Rich from "./Rich.jsx";
 
 /* Notes read as a book: pick a topic, then walk its notes in order, each one
    sitting under the question that prompted it. Not a search box over a flat
@@ -78,14 +79,14 @@ export default function NotesView({ data, notes, config, onStartSession }) {
                 {config.pdfs && <a className="srclink" href={pdfSrc(row.q.set)} target="_blank" rel="noreferrer">PDF</a>}
               </header>
 
-              {row.q.passage && <div className="ptext small">{row.q.passage}</div>}
+              {row.q.passage && <div className="ptext small"><Rich text={row.q.passage} /></div>}
               {(row.q.img || []).map((s) => <img key={s} src={imgSrc(s)} alt="" loading="lazy" />)}
-              <div className="qtext">{row.q.stem}</div>
+              <div className="qtext"><Rich text={row.q.stem} /></div>
               {row.q.answer && (
                 <div className="answerline">
                   Answer <b>{row.q.answer.toUpperCase()}</b>
                   {row.q.options && row.q.options[row.q.answer.toLowerCase()] &&
-                    <span> — {row.q.options[row.q.answer.toLowerCase()]}</span>}
+                    <span> — <Rich text={row.q.options[row.q.answer.toLowerCase()]} /></span>}
                 </div>
               )}
 

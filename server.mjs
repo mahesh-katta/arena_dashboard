@@ -15,7 +15,7 @@
  * Routes:
  *     /                     the app
  *     /data/...             the question bank and images
- *     GET    /api/config    what this install has (are the PDFs here?)
+ *     GET    /api/config    what this install has (are the PDFs here? which banks?)
  *     GET    /api/progress  the whole progress document
  *     POST   /api/progress  merge in sessions and attempts (idempotent), or
  *                           drop an exact set of questions (a scoped reset)
@@ -24,6 +24,10 @@
  *     POST   /api/notes     write or clear one note
  *
  * Notes live in their own file. Reset, at any scope, never touches them.
+ *
+ * Question banks: Guidely lives in data/ (progress.json, notes.json). Any other
+ * bank lives in data/<bank>/ and keeps its own progress-<bank>.json and
+ * notes-<bank>.json. The API picks the bank from ?bank=<id>; no bank = Guidely.
  */
 import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
@@ -39,6 +43,17 @@ const STORE = path.join(ROOT, "progress.json");
 const NOTES = path.join(ROOT, "notes.json");
 const EMPTY = { version: 1, sessions: [], attempts: [] };
 
+const BANKS = [
+  { id: "guidely", name: "Guidely", note: "Topic-wise sets from the Guidely PDFs", dir: DATA },
+  { id: "sreedhar", name: "Sreedhar", note: "81 full IBPS mock tests, tagged by topic", dir: path.join(DATA, "sreedhar") },
+];
+const bankOf = (url) => {
+  const b = url.searchParams.get("bank");
+  return b && b !== "guidely" && BANKS.some((x) => x.id === b) ? b : null;
+};
+const storeFile = (b) => (b ? path.join(ROOT, "progress-" + b + ".json") : STORE);
+const notesFile = (b) => (b ? path.join(ROOT, "notes-" + b + ".json") : NOTES);
+
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -52,18 +67,18 @@ const TYPES = {
 let chain = Promise.resolve();
 const serial = (fn) => (chain = chain.then(fn, fn));
 
-async function readStore() {
+async function readStore(file = STORE) {
   try {
-    const d = JSON.parse(await readFile(STORE, "utf8"));
+    const d = JSON.parse(await readFile(file, "utf8"));
     return { ...EMPTY, ...d };
   } catch {
     return { ...EMPTY, sessions: [], attempts: [] };
   }
 }
 
-async function readNotes() {
+async function readNotes(file = NOTES) {
   try {
-    const d = JSON.parse(await readFile(NOTES, "utf8"));
+    const d = JSON.parse(await readFile(file, "utf8"));
     return { version: 1, notes: d.notes || {} };
   } catch {
     return { version: 1, notes: {} };
@@ -77,7 +92,7 @@ async function writeJSON(file, doc) {
   await writeFile(tmp, JSON.stringify(doc));
   await rename(tmp, file);
 }
-const writeStore = (doc) => writeJSON(STORE, doc);
+const writeStore = (doc, file = STORE) => writeJSON(file, doc);
 
 const json = (res, obj, code = 200) => {
   const body = JSON.stringify(obj);
@@ -115,6 +130,9 @@ function resolveFile(urlPath) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   const p = url.pathname;
+  const bank = bankOf(url);
+  const SF = storeFile(bank);
+  const NF = notesFile(bank);
 
   try {
     if (p === "/api/config") {
@@ -122,20 +140,23 @@ const server = createServer(async (req, res) => {
         pdfs: existsSync(path.join(DATA, "guidely-pdfs")),
         charts: existsSync(path.join(DATA, "charts")),
         api: true,
+        banks: BANKS.map(({ id, name, note, dir }) => ({
+          id, name, note, available: existsSync(path.join(dir, "questions.json")),
+        })),
       });
     }
 
     if (p === "/api/notes") {
-      if (req.method === "GET") return json(res, await serial(readNotes));
+      if (req.method === "GET") return json(res, await serial(() => readNotes(NF)));
       if (req.method === "POST") {
         const { key, text } = await body(req);
         if (!key) return json(res, { ok: false, error: "no key" }, 400);
         return json(res, await serial(async () => {
-          const doc = await readNotes();
+          const doc = await readNotes(NF);
           const clean = (text || "").trim();
           if (clean) doc.notes[key] = { text: clean, at: Date.now() };
           else delete doc.notes[key];
-          await writeJSON(NOTES, doc);
+          await writeJSON(NF, doc);
           return { ok: true, notes: Object.keys(doc.notes).length };
         }));
       }
@@ -144,19 +165,19 @@ const server = createServer(async (req, res) => {
     }
 
     if (p === "/api/progress") {
-      if (req.method === "GET") return json(res, await serial(readStore));
+      if (req.method === "GET") return json(res, await serial(() => readStore(SF)));
 
       if (req.method === "POST") {
         const payload = await body(req);
         return json(res, await serial(async () => {
-          let doc = await readStore();
+          let doc = await readStore(SF);
           if (payload.replace) {
             doc = {
               version: 1,
               sessions: payload.sessions || [],
               attempts: payload.attempts || [],
             };
-            await writeStore(doc);
+            await writeStore(doc, SF);
             return { ok: true, replaced: true, attempts: doc.attempts.length };
           }
           // a reset scoped to a node in the tree: the client works out which
@@ -166,7 +187,7 @@ const server = createServer(async (req, res) => {
             const gone = new Set(payload.remove);
             const before = doc.attempts.length;
             doc.attempts = doc.attempts.filter((a) => !gone.has(a.set + "#" + a.q_no));
-            await writeStore(doc);
+            await writeStore(doc, SF);
             return { ok: true, removed: before - doc.attempts.length, attempts: doc.attempts.length };
           }
           // attempts carry an id, so a retried request cannot double-count
@@ -182,7 +203,7 @@ const server = createServer(async (req, res) => {
           for (const s of payload.sessions || [])
             if (s.sid) sess.set(s.sid, { ...(sess.get(s.sid) || {}), ...s });
           doc.sessions = [...sess.values()];
-          await writeStore(doc);
+          await writeStore(doc, SF);
           return { ok: true, added, attempts: doc.attempts.length };
         }));
       }
@@ -191,14 +212,14 @@ const server = createServer(async (req, res) => {
         const topic = url.searchParams.get("topic");
         const sid = url.searchParams.get("sid");
         return json(res, await serial(async () => {
-          let doc = await readStore();
+          let doc = await readStore(SF);
           const before = doc.attempts.length;
           if (topic) doc.attempts = doc.attempts.filter((a) => a.topic !== topic);
           else if (sid) {
             doc.attempts = doc.attempts.filter((a) => a.sid !== sid);
             doc.sessions = doc.sessions.filter((s) => s.sid !== sid);
           } else doc = { version: 1, sessions: [], attempts: [] };
-          await writeStore(doc);
+          await writeStore(doc, SF);
           return { ok: true, removed: before - doc.attempts.length, attempts: doc.attempts.length };
         }));
       }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { pace, uid, qKey, imgSrc, pdfSrc } from "./store.js";
+import Rich from "./Rich.jsx";
 
 const CALM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const LETTERS = ["a", "b", "c", "d", "e"];
@@ -58,10 +59,10 @@ function QCard({ q, idx, state, here, practice, note, solo, config, onAnswer, on
   return (
     <div className={"qitem" + (finished ? " done" : "") + (here ? " here" : "") + (st.skipped ? " skipped" : "")}
          style={!CALM ? { animationDelay: Math.min(idx * 45, 220) + "ms" } : undefined}>
-      {solo && q.dirs && <div className="dirs"><b>Instructions</b>{q.dirs}</div>}
+      {solo && q.dirs && <div className="dirs"><b>Instructions</b><Rich text={q.dirs} /></div>}
       <div className="qhead">
         <span className="qnum">Q{q.q_no}</span>
-        <div className="qtext">{q.stem || "(question text not captured — open the PDF)"}</div>
+        <div className="qtext">{q.stem ? <Rich text={q.stem} /> : "(question text not captured — open the PDF)"}</div>
       </div>
 
       <div className={"opts" + (longest <= 34 ? " row" : "")}>
@@ -81,7 +82,7 @@ function QCard({ q, idx, state, here, practice, note, solo, config, onAnswer, on
           return (
             <button key={k} className={cls} disabled={dead} onClick={() => onAnswer(k)}>
               <span className="key">{k.toUpperCase()}</span>
-              <span>{q.options[k]}</span>
+              <span><Rich text={q.options[k]} /></span>
             </button>
           );
         })}
@@ -120,7 +121,7 @@ function QCard({ q, idx, state, here, practice, note, solo, config, onAnswer, on
         )}
       </div>
 
-      {practice && showSol && q.solution && <div className="sol">{q.solution}</div>}
+      {practice && showSol && q.solution && <div className="sol"><Rich text={q.solution} /></div>}
       {practice && finished && <NoteBox value={note} onSave={onNote} />}
     </div>
   );
@@ -272,8 +273,8 @@ export default function Runner({ data, progress, notes, F, session, onFinish }) 
       <div className={"blockwrap" + (stack ? " stack" : shared ? "" : " solo")}>
         {shared && (
           <div className="stimulus">
-            {first.dirs && <div className="dirs"><b>Instructions</b>{first.dirs}</div>}
-            {first.passage && <div className="ptext">{first.passage}</div>}
+            {first.dirs && <div className="dirs"><b>Instructions</b><Rich text={first.dirs} /></div>}
+            {first.passage && <div className="ptext"><Rich text={first.passage} /></div>}
             {(first.img || []).map((src) => (
               <img key={src} src={imgSrc(src)} alt="Stimulus for this set" loading="lazy" decoding="async" />
             ))}

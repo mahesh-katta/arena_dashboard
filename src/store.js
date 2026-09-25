@@ -9,7 +9,19 @@ export const fmt = (s) =>
   s < 60 ? s.toFixed(1) + "s" : Math.floor(s / 60) + "m " + Math.round(s % 60) + "s";
 export const pace = (s) => (s <= PACE ? "fast" : s <= PACE * 2 ? "ok" : "slow");
 export const qKey = (q) => q.set + "#" + q.q_no;
-export const imgSrc = (p) => "data/" + p;
+/* Which question bank this page is on. Guidely lives in data/, any other bank
+   in data/<bank>/, and the API is told the bank so each keeps its own
+   progress and notes. Set once at boot from ?bank=, before anything loads. */
+export let BANK = "guidely";
+export let DATA_BASE = "data/";
+export function setBank(b) {
+  BANK = b || "guidely";
+  DATA_BASE = BANK === "guidely" ? "data/" : "data/" + BANK + "/";
+}
+export const api = (p) =>
+  BANK === "guidely" ? p : p + (p.includes("?") ? "&" : "?") + "bank=" + encodeURIComponent(BANK);
+
+export const imgSrc = (p) => DATA_BASE + p;
 export const pdfSrc = (slug) => "data/guidely-pdfs/" + encodeURIComponent(slug) + ".pdf";
 
 /* Questions that share a passage — or a chart image, which is the same thing
@@ -67,9 +79,9 @@ async function fetchJSON(url, onProgress) {
 }
 
 export async function loadData(onProgress) {
-  const sets = await fetchJSON("data/sets.json");
+  const sets = await fetchJSON(DATA_BASE + "sets.json");
   onProgress(0.04);
-  const questions = await fetchJSON("data/questions.json", (f) => onProgress(0.04 + f * 0.96));
+  const questions = await fetchJSON(DATA_BASE + "questions.json", (f) => onProgress(0.04 + f * 0.96));
   const bySet = {};
   questions.forEach((q, i) => {
     q._i = i;
@@ -97,7 +109,7 @@ export class Progress {
 
   async load() {
     try {
-      const r = await fetch("api/progress", { cache: "no-store" });
+      const r = await fetch(api("api/progress"), { cache: "no-store" });
       if (!r.ok) throw 0;
       const d = await r.json();
       this.attempts = d.attempts || [];
@@ -127,7 +139,7 @@ export class Progress {
     if (!batch.length) return;
     const body = { attempts: batch, sessions: this.sessions.slice(-3) };
     try {
-      const r = await fetch("api/progress", {
+      const r = await fetch(api("api/progress"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -138,7 +150,7 @@ export class Progress {
   }
   async wipe(query) {
     if (this.api) {
-      try { await fetch("api/progress" + (query ? "?" + query : ""), { method: "DELETE" }); } catch {}
+      try { await fetch(api("api/progress" + (query ? "?" + query : "")), { method: "DELETE" }); } catch {}
       await this.load();
       return;
     }
@@ -157,7 +169,7 @@ export class Progress {
     this.attempts = doc.attempts || [];
     this.sessions = doc.sessions || [];
     if (this.api) {
-      await fetch("api/progress", {
+      await fetch(api("api/progress"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ replace: true, attempts: this.attempts, sessions: this.sessions }),
       });
@@ -175,7 +187,7 @@ export class Progress {
     this.attempts = kept;
     if (this.api) {
       try {
-        await fetch("api/progress", {
+        await fetch(api("api/progress"), {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ remove: [...gone] }),
         });
@@ -285,7 +297,7 @@ export class Notes {
 
   async load() {
     try {
-      const r = await fetch("api/notes", { cache: "no-store" });
+      const r = await fetch(api("api/notes"), { cache: "no-store" });
       if (!r.ok) throw 0;
       this.map = (await r.json()).notes || {};
       this.api = true;
@@ -302,7 +314,7 @@ export class Notes {
     this.emit();
     if (this.api) {
       try {
-        await fetch("api/notes", {
+        await fetch(api("api/notes"), {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key, text }),
         });

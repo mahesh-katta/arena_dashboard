@@ -1,14 +1,50 @@
 import React, { useState, useEffect, useRef, useReducer } from "react";
 import { createRoot } from "react-dom/client";
-import { Progress, Notes, loadData, emptyFilter, buildBlocks, keysUnder, masteredKeys, qKey } from "./store.js";
+import { Progress, Notes, loadData, emptyFilter, buildBlocks, keysUnder, masteredKeys, qKey, setBank, DATA_BASE } from "./store.js";
 import Funnel, { Landing } from "./Funnel.jsx";
 import Runner from "./Runner.jsx";
 import ProgressView from "./Progress.jsx";
 import NotesView from "./Notes.jsx";
 import { Done, Stats, SetsView, Review } from "./Views.jsx";
 
+/* The question bank comes from the URL (?bank=guidely / ?bank=sreedhar), so a
+   switch is a fresh page: nothing from one bank can leak into the other's
+   progress, notes or filters. No bank in the URL = the home screen asks. */
+const BANK_ID = new URLSearchParams(location.search).get("bank");
+if (BANK_ID) setBank(BANK_ID);
+
 const progress = new Progress();
 const notes = new Notes();
+
+const DEFAULT_BANKS = [
+  { id: "guidely", name: "Guidely", note: "Topic-wise sets from the Guidely PDFs", available: true },
+  { id: "sreedhar", name: "Sreedhar", note: "81 full IBPS mock tests, tagged by topic", available: true },
+];
+
+function BankPick({ banks }) {
+  let last = null;
+  try { last = localStorage.getItem("area.bank"); } catch {}
+  const pick = (id) => {
+    try { localStorage.setItem("area.bank", id); } catch {}
+    location.search = "?bank=" + encodeURIComponent(id);
+  };
+  return (
+    <div className="landing">
+      <h1>Which question bank?</h1>
+      <div className="modes">
+        {banks.map((b) => (
+          <button key={b.id} className={"modecard " + (b.id === "guidely" ? "practice" : "test")}
+                  disabled={!b.available} onClick={() => pick(b.id)}>
+            <b>{b.name}</b>
+            <span>{b.note}</span>
+            <em>{!b.available ? "not installed" : b.id === last ? "last used" : "\u00a0"}</em>
+          </button>
+        ))}
+      </div>
+      <p className="note">Each bank keeps its own progress and notes.</p>
+    </div>
+  );
+}
 
 function Boot({ pct }) {
   return (
@@ -44,12 +80,22 @@ function App() {
     if (started.current) return;
     started.current = true;
     (async () => {
+      if (!BANK_ID) {
+        try {
+          const r = await fetch("api/config");
+          if (r.ok) setConfig(await r.json());
+        } catch {}
+        return;
+      }
       await Promise.all([progress.load(), notes.load()]);
       progress.subscribe(refresh);
       notes.subscribe(refresh);
       try {
         const r = await fetch("api/config");
-        if (r.ok) setConfig(await r.json());
+        if (r.ok) {
+          const c = await r.json();
+          setConfig({ ...c, pdfs: !!c.pdfs && BANK_ID === "guidely" });
+        }
       } catch {}
       try { setData(await loadData(setPct)); }
       catch (e) { setError(e.message); }
@@ -68,13 +114,26 @@ function App() {
     return () => removeEventListener("resize", measure);
   }, []);
 
+  const bankName = ((config.banks || DEFAULT_BANKS).find((b) => b.id === BANK_ID) || {}).name || BANK_ID;
+  const switchBank = () => { location.href = location.pathname; };
+
+  if (!BANK_ID)
+    return (
+      <>
+        <header className="top">
+          <span className="brand">Area <span>Drill</span></span>
+        </header>
+        <main className="wrap"><BankPick banks={config.banks || DEFAULT_BANKS} /></main>
+      </>
+    );
+
   if (error)
     return (
       <div className="empty">
         <h2>Can't read the question bank</h2>
         <p className="note">
-          It needs <code>data/questions.json</code>, <code>data/sets.json</code> and
-          {" "}<code>data/charts/</code> sitting beside the app.
+          It needs <code>{DATA_BASE}questions.json</code>, <code>{DATA_BASE}sets.json</code> and
+          {" "}<code>{DATA_BASE}charts/</code> sitting beside the app.
         </p>
         <p className="note">
           On a computer this page has to be served rather than opened from the file
@@ -119,6 +178,7 @@ function App() {
     <>
       <header className="top">
         <button className="brand" onClick={() => go("home")}>Area <span>Drill</span></button>
+        <button className="ghost bankchip" onClick={switchBank} title="Switch question bank">{bankName} ⇄</button>
         <div className="tabs" role="tablist">
           {MENU.map(([v, label]) => (
             <button key={v} className={"tab" + (v === "reset" ? " resettab" : "")} role="tab"

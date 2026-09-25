@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { PACE, pace, fmt, qKey, pdfSrc, imgSrc } from "./store.js";
+import Rich from "./Rich.jsx";
 
 function Tile({ k, v, sub }) {
   return (
@@ -33,21 +34,21 @@ function Recap({ rec, q, config }) {
       </div>
       {open && q && (
         <div className="rbody">
-          {q.dirs && <div className="dirs"><b>Instructions</b>{q.dirs}</div>}
-          {q.passage && <div className="ptext">{q.passage}</div>}
+          {q.dirs && <div className="dirs"><b>Instructions</b><Rich text={q.dirs} /></div>}
+          {q.passage && <div className="ptext"><Rich text={q.passage} /></div>}
           {(q.img || []).map((s) => <img key={s} src={imgSrc(s)} alt="" loading="lazy" />)}
-          <div className="qtext">{q.stem}</div>
+          <div className="qtext"><Rich text={q.stem} /></div>
           <div className="opts">
             {["a", "b", "c", "d", "e"].filter((k) => q.options[k] != null).map((k) => {
               const key = (q.answer || "").toLowerCase();
               return (
                 <div key={k} className={"opt" + (k === key ? " right" : k === rec.chosen && wrong ? " wrong" : "")}>
-                  <span className="key">{k.toUpperCase()}</span><span>{q.options[k]}</span>
+                  <span className="key">{k.toUpperCase()}</span><span><Rich text={q.options[k]} /></span>
                 </div>
               );
             })}
           </div>
-          {q.solution && <div className="sol">{q.solution}</div>}
+          {q.solution && <div className="sol"><Rich text={q.solution} /></div>}
         </div>
       )}
     </div>

@@ -39,6 +39,22 @@ build step and no Node toolchain needed on the machine running it — a pull swa
 the interface and leaves your data, progress and notes alone. Refresh the browser
 after.
 
+## Question banks
+
+The home screen first asks which bank: **Guidely** (topic-wise sets, `data/`)
+or **Sreedhar** (81 IBPS mock tests, `data/sreedhar/`). The choice sits in the
+URL (`?bank=guidely` / `?bank=sreedhar`); the chip next to the logo switches.
+
+Each bank keeps its own history: Guidely uses `progress.json` / `notes.json`,
+any other bank `progress-<bank>.json` / `notes-<bank>.json`, all beside `app/`.
+Reset in one bank never touches the other.
+
+A non-Guidely bank may mark text with `**bold**`, `__underline__` and
+`[img:charts/...]` (a picture inside a question or option); `src/Rich.jsx`
+renders them. Guidely text is shown exactly as stored. To add a bank: put its
+`questions.json`, `sets.json` and `charts/` in `data/<id>/` and list it in
+`BANKS` in `server.mjs`.
+
 ## Practice vs Test
 
 The mode is the first thing you pick, because it decides what the session is for.
