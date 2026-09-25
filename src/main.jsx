@@ -103,7 +103,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const t = localStorage.getItem("arena.theme") || localStorage.getItem("area.theme");
+    const t = localStorage.getItem("arena.theme");
     if (t) document.documentElement.setAttribute("data-theme", t);
     const measure = () => {
       const h = document.querySelector(".top");
