@@ -3,17 +3,13 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
 echo "Starting Arena Dashboard…"
-if command -v node >/dev/null 2>&1; then
-  node "$HERE/server.mjs" 8000 &
-elif command -v python3 >/dev/null 2>&1; then
-  echo "(Node isn't installed — falling back to the Python server.)"
-  python3 "$HERE/serve.py" 8000 &
-else
-  echo "Neither Node nor Python 3 is installed."
-  echo "Install Node from https://nodejs.org and run this again."
+if ! command -v node >/dev/null 2>&1; then
+  echo "Node isn't installed. Install it once from https://nodejs.org"
+  echo "(the LTS version), then double-click start.command again."
   read -r -p "Press Enter to close."
   exit 1
 fi
+node "$HERE/server.mjs" 8000 &
 PID=$!
 sleep 1
 open http://localhost:8000 2>/dev/null || true

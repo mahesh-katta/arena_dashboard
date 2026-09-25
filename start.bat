@@ -3,12 +3,13 @@ title Arena Dashboard
 set "HERE=%~dp0"
 cd /d "%~dp0.."
 echo Starting Arena Dashboard...
-start "" http://localhost:8000
 where node >nul 2>nul
-if %errorlevel%==0 (
-  node "%HERE%server.mjs" 8000
-) else (
-  echo (Node isn't installed - falling back to the Python server.^)
-  python "%HERE%serve.py" 8000
+if %errorlevel% neq 0 (
+  echo Node isn't installed. Install it once from https://nodejs.org
+  echo (the LTS version^), then double-click start.bat again.
+  pause
+  exit /b 1
 )
+start "" http://localhost:8000
+node "%HERE%server.mjs" 8000
 pause
