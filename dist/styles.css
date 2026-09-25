@@ -770,3 +770,50 @@ th{background:var(--surface-solid)}
 @media(max-width:780px){ .bankorb{width:72px!important; height:72px; margin-bottom:14px} .bankorb i{font-size:32px} }
 .bankorb i svg{filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))}
 @media(max-width:780px){ .bankorb i svg{width:34px; height:34px} }
+
+/* ---------- phones ---------- */
+@media (hover:none), (max-width:640px){
+  .blockbar .hint{display:none}
+}
+@media (max-width:640px){
+  .top{flex-wrap:nowrap; gap:8px; padding:9px 12px}
+  .top .brand{font-size:15px; flex:none}
+  .top .brand span{display:none}
+  .bankchip{flex:none; font-size:11.5px; padding:4px 9px; margin-right:0}
+  .tabs{flex:1; min-width:0; margin-left:0; justify-content:flex-end; overflow-x:auto; scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:6px 7px; font-size:12.5px; white-space:nowrap}
+  .top > .ghost:last-child{flex:none; font-size:0; width:32px; height:32px; padding:0; border-radius:50%}
+  .top > .ghost:last-child::before{content:"◐"; font-size:15px}
+  .wrap{padding:16px 14px 56px}
+
+  .runbar{gap:8px 12px; padding:10px 12px; border-radius:14px}
+  .runbar .clock{font-size:22px; min-width:62px}
+  .runbar .prog{order:5; flex-basis:100%}
+  .runbar > .crumb.num{margin-left:auto}
+  .qitem{padding:14px}
+  .blockbar{padding:10px 0}
+  .next{width:100%; padding:14px}
+
+  .presetbar{gap:8px}
+  .glassseg{width:100%}
+  .glassseg button{padding:7px 8px; flex:1}
+  .tilepick{grid-template-columns:1fr 1fr; gap:10px}
+  .tp{min-height:84px; padding:14px}
+  .checklist.wide{grid-template-columns:1fr; max-height:none}
+  .bigseg{gap:8px}
+  .bigseg b{font-size:22px}
+  .wizcard{border-radius:20px}
+  .wizfoot{gap:8px; padding:8px; bottom:10px; width:calc(100% - 20px)}
+  .wizfoot .ghost.big{white-space:nowrap; padding:11px 12px}
+  .pinrow input{font-size:16px}
+}
+@media (max-width:640px){ input,textarea,select{font-size:16px!important} }
+html,body{overflow-x:clip}
+@media (max-width:640px){
+  .top{flex-wrap:wrap; row-gap:6px}
+  .top .brand span{display:inline}
+  .top > .ghost:last-child{margin-left:auto}
+  .tabs{order:5; flex-basis:100%; justify-content:space-between; overflow:visible; gap:4px}
+  .tab{flex:1; text-align:center; padding:7px 4px; font-size:13px}
+}
