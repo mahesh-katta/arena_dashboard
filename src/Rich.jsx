@@ -25,9 +25,50 @@ function parts(s, key = "") {
   });
 }
 
+/* A run of lines shaped "| a | b | c |" is a table from the source: one line per
+   row, every row the same width, merged cells left empty so no column shifts.
+   The first row is the header. */
+const ROWLINE = /^\|.*\|$/;
+
+function Table({ rows, k }) {
+  const cells = rows.map((r) => r.slice(1, -1).split(" | ").map((c) => c.trim()));
+  const [head, ...body] = cells;
+  return (
+    <div className="dtable-wrap" key={k}>
+      <table className="dtable">
+        <thead><tr>{head.map((c, i) => <th key={i}>{parts(c, k + "h" + i)}</th>)}</tr></thead>
+        <tbody>
+          {body.map((r, ri) => (
+            <tr key={ri}>{r.map((c, i) => (i === 0
+              ? <th key={i} scope="row">{parts(c, k + "r" + ri + i)}</th>
+              : <td key={i}>{parts(c, k + "c" + ri + i)}</td>))}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Rich({ text }) {
   if (text == null || text === "") return null;
   const s = String(text);
-  if (BANK === "guidely" || !/\[img:|\*\*|__/.test(s)) return s;
-  return parts(s);
+  if (BANK === "guidely" || !/\[img:|\*\*|__|^\|.*\|$/m.test(s)) return s;
+  const out = [];
+  let buf = [], rows = [];
+  const flushText = () => {
+    if (buf.length) out.push(<span key={"t" + out.length}>{parts(buf.join("\n"), "t" + out.length + ".")}</span>);
+    buf = [];
+  };
+  const flushRows = () => {
+    if (rows.length >= 2) out.push(<Table key={"g" + out.length} rows={rows} k={"g" + out.length} />);
+    else buf.push(...rows);
+    rows = [];
+  };
+  for (const line of s.split("\n")) {
+    if (ROWLINE.test(line.trim())) { flushText(); rows.push(line.trim()); }
+    else { flushRows(); buf.push(line); }
+  }
+  flushRows();
+  flushText();
+  return out;
 }
