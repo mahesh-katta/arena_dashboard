@@ -817,3 +817,65 @@ html,body{overflow-x:clip}
   .tabs{order:5; flex-basis:100%; justify-content:space-between; overflow:visible; gap:4px}
   .tab{flex:1; text-align:center; padding:7px 4px; font-size:13px}
 }
+
+/* ---------- the course map ---------- */
+.course{max-width:1000px; margin:0 auto}
+.course .crumbs{margin-bottom:12px}
+.coursehero{display:grid; grid-template-columns:auto 1fr auto; gap:24px; align-items:center;
+  border-radius:26px; padding:clamp(18px,3vw,30px); position:relative; overflow:hidden; isolation:isolate}
+.coursehero::before{content:""; position:absolute; z-index:-1; width:340px; height:340px; right:-120px; top:-160px;
+  border-radius:50%; background:var(--grad); filter:blur(70px); opacity:.28}
+.chmeta h2{font-size:clamp(24px,3.4vw,34px); margin:2px 0 4px}
+.chmeta .eyebrow{margin:0}
+.nextup{margin:12px 0 0; font-size:14px; color:var(--ink)}
+.nextup span{display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  color:#fff; background:var(--grad-green); border-radius:99px; padding:3px 9px; margin-right:8px; vertical-align:1px}
+.nextup.done span{background:var(--grad)}
+.chactions{display:flex; gap:10px; flex-wrap:wrap; margin-top:16px}
+.chactions .go{width:auto; margin:0; padding:12px 24px}
+.chlimit{align-self:start; display:flex; flex-direction:column; gap:6px; align-items:flex-end}
+.chlimit .glassseg button{padding:6px 12px}
+
+.ring .ringbg{stroke:var(--surface-2)}
+.ring .ringfg{stroke:#8B5CF6; transition:stroke-dashoffset .8s var(--ease)}
+.ring.full .ringfg{stroke:#10B981}
+.ring .ringtx{fill:var(--ink); font-family:"IBM Plex Mono",monospace; font-weight:600}
+.ring.full .ringtx{fill:#10B981}
+
+.lastchip{display:flex; align-items:center; gap:14px; width:100%; margin-top:14px; text-align:left;
+  border-radius:18px; padding:12px 16px; transition:transform .15s var(--ease)}
+.lastchip:hover{transform:translateY(-2px)}
+.lcicon{display:grid; place-items:center; width:38px; height:38px; border-radius:50%; flex:none;
+  background:var(--grad); color:#fff; font-size:18px}
+.lctx{flex:1; min-width:0}
+.lctx small{display:block; font-size:11.5px; color:var(--faint)}
+.lctx b{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lcpct{font-size:14px; font-weight:600; color:var(--accent)}
+
+.kidhead{margin:26px 0 12px; font-size:15px; color:var(--muted); font-weight:600}
+.unitgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px}
+.unitlist{display:flex; flex-direction:column; gap:8px}
+.unit{display:flex; align-items:center; gap:8px; border-radius:18px; padding:8px 12px 8px 8px;
+  transition:transform .15s var(--ease), box-shadow .2s var(--ease)}
+.unit:hover{transform:translateY(-2px)}
+.unit.complete{border-color:rgba(16,185,129,.45)}
+.unitmain{flex:1; min-width:0; display:flex; align-items:center; gap:12px; background:none; border:0;
+  padding:6px; text-align:left; border-radius:12px}
+.unittx{flex:1; min-width:0}
+.unittx b{display:block; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.unittx small{display:block; font-size:11.5px; color:var(--faint); margin-top:1px}
+.ubar{display:block; height:4px; border-radius:3px; background:var(--surface-2); margin-top:7px; overflow:hidden}
+.ubar i{display:block; height:100%; background:var(--grad); transition:width .6s var(--ease)}
+.unit.complete .ubar i{background:var(--grad-green)}
+.unitmain .chev{font-size:20px; color:var(--faint)}
+.unitact{flex:none}
+.kindseg{max-width:340px; margin-top:12px}
+.kindseg button{flex:1}
+@media(max-width:640px){
+  .coursehero{grid-template-columns:auto 1fr; gap:14px}
+  .coursehero .ring{width:78px; height:78px}
+  .chlimit{grid-column:1 / -1; align-items:stretch}
+  .chactions .go{flex:1}
+  .unitgrid{grid-template-columns:1fr}
+  .kindseg{max-width:none}
+}

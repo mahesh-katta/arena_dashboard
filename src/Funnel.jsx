@@ -3,7 +3,7 @@ import { matchingSets, pool, prune, inPreset } from "./store.js";
 
 /* Inside a bank: the mode is the first decision, because it changes what the
    whole session is for. */
-export function Landing({ onPick, notes, progress, bankName }) {
+export function Landing({ onPick, notes, progress, course, bankName }) {
   return (
     <div className="landing">
       <p className="eyebrow">{bankName}</p>
@@ -13,18 +13,17 @@ export function Landing({ onPick, notes, progress, bankName }) {
           <span className="mcglow" aria-hidden="true" />
           <b>Practice</b>
           <span>
-            Answer until you get it right, with the clock running and the working
-            there when you want it. Nothing is scored — the only thing kept is what
-            you write down.
+            The course: pick a section and topic, and carry on from exactly where you
+            stopped. Answer until you get it right — every question you solve is kept.
           </span>
-          <em>{notes.count ? notes.count + " notes so far" : "no stakes"}</em>
+          <em>{course.count.toLocaleString()} solved{notes.count ? " · " + notes.count + " notes" : ""}</em>
         </button>
         <button className="modecard glass test" onClick={() => onPick("test")}>
           <span className="mcglow" aria-hidden="true" />
           <b>Test</b>
           <span>
-            One shot per question, clock up, marked at the end. This is the only
-            thing that moves your progress.
+            One shot per question, clock up, marked at the end. Pick any mix of
+            sections and topics.
           </span>
           <em>{progress.attempts.length.toLocaleString()} answered</em>
         </button>

@@ -59,21 +59,25 @@ function Recap({ rec, q, config }) {
 
 /* Where a session lands: a test hands you the marking, a practice run hands you
    what you wrote. Neither dumps you back on a settings screen. */
-export function Done({ data, outcome, notes, config, onStats, onNotes, onAgain }) {
+export function Done({ data, outcome, notes, config, onStats, onNotes, onAgain, courseInfo, onContinue, onCourse }) {
   if (outcome.style === "practice") {
-    const written = notes.count;
+    const c = courseInfo;
+    const pct = c && c.total ? Math.floor((c.done / c.total) * 100) : 0;
     return (
       <div className="doneprac">
-        <h2>Practice done</h2>
-        <p className="note">
-          Nothing was scored and nothing was recorded — that's the point of practice.
-        </p>
+        <p className="eyebrow">{outcome.mode === "revise" ? "Revision done" : "Sitting done"}</p>
+        <h2>{c ? c.name : "Practice done"}</h2>
         <div className="tiles" style={{ marginTop: 16 }}>
-          <Tile k="Notes you have" v={written} sub={written === 1 ? "note" : "notes"} />
+          <Tile k="Solved this sitting" v={outcome.solvedNow || 0} sub={outcome.mode === "revise" ? "revision" : "new"} />
+          {c && <Tile k={c.level + " progress"} v={pct + "%"} sub={c.done + " / " + c.total} />}
+          <Tile k="Notes you have" v={notes.count} sub={notes.count === 1 ? "note" : "notes"} />
         </div>
         <div className="toolrow" style={{ marginTop: 20 }}>
-          <button className="go" style={{ maxWidth: 220 }} onClick={onNotes}>Read your notes</button>
-          <button className="ghost" onClick={onAgain}>Practise something else</button>
+          {c && c.done < c.total && (
+            <button className="go grad" style={{ maxWidth: 260 }} onClick={onContinue}>Continue — next stretch</button>
+          )}
+          <button className="ghost big" onClick={onCourse}>Back to the course</button>
+          {notes.count > 0 && <button className="ghost big" onClick={onNotes}>Read your notes</button>}
         </div>
       </div>
     );

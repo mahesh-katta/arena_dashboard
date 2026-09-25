@@ -27,6 +27,8 @@
  *     DELETE /api/progress  wipe, or drop one topic / one session
  *     GET    /api/notes     every note
  *     POST   /api/notes     write or clear one note
+ *     GET    /api/course    which questions you have solved in Practice
+ *     POST   /api/course    mark solved ({done:[...]}) or un-mark ({remove:[keys]})
  *
  * Notes live in their own file. Reset, at any scope, never touches them.
  *
@@ -56,6 +58,7 @@ const bankOf = (url) => {
 };
 const storeFile = (b) => path.join(ROOT, b + "_progress.json");
 const notesFile = (b) => path.join(ROOT, b + "_notes.json");
+const courseFile = (b) => path.join(ROOT, b + "_course.json");
 const STORE = storeFile("guidely");
 const NOTES = notesFile("guidely");
 
@@ -114,6 +117,17 @@ async function readNotes(file = NOTES) {
   } catch {
     return { version: 1, notes: {} };
   }
+}
+
+/* Practice progress: the course. A file that exists but will not parse is
+   refused rather than treated as empty, so it can never be overwritten by a
+   near-empty one; the .bak beside it is the way back. */
+async function readCourse(file) {
+  let raw;
+  try { raw = await readFile(file, "utf8"); }
+  catch { return { version: 1, done: {} }; }
+  const d = JSON.parse(raw);
+  return { version: 1, done: d.done || {} };
 }
 
 /* atomic: a crash mid-write must not shred either file */
@@ -189,6 +203,33 @@ const server = createServer(async (req, res) => {
           else delete doc.notes[key];
           await writeJSON(NF, doc);
           return { ok: true, notes: Object.keys(doc.notes).length };
+        }));
+      }
+      res.writeHead(405).end();
+      return;
+    }
+
+    if (p === "/api/course") {
+      const CF = courseFile(bank);
+      if (req.method === "GET") {
+        try { return json(res, await serial(() => readCourse(CF))); }
+        catch { return json(res, { ok: false, error: path.basename(CF) + " is damaged — restore it from the .bak" }, 500); }
+      }
+      if (req.method === "POST") {
+        const payload = await body(req);
+        return json(res, await serial(async () => {
+          let doc;
+          try { doc = await readCourse(CF); }
+          catch { return { ok: false, error: "course file is damaged; nothing written" }; }
+          let changed = 0;
+          for (const d of payload.done || []) {
+            if (!d || !d.key || doc.done[d.key]) continue;
+            doc.done[d.key] = { at: d.at || Date.now(), tries: d.tries || 1 };
+            changed++;
+          }
+          for (const k of payload.remove || []) if (doc.done[k]) { delete doc.done[k]; changed++; }
+          if (changed) await writeJSON(CF, doc);
+          return { ok: true, changed, done: Object.keys(doc.done).length };
         }));
       }
       res.writeHead(405).end();
@@ -294,7 +335,10 @@ console.log("  data : " + DATA);
 for (const b of BANKS) {
   const d = await readStore(storeFile(b.id));
   const n = Object.keys((await readNotes(notesFile(b.id))).notes).length;
-  console.log("  " + b.name.padEnd(9) + ": " + d.attempts.length + " attempts, " + n + " notes  (" + b.id + "_progress.json)");
+  let c = 0;
+  try { c = Object.keys((await readCourse(courseFile(b.id))).done).length; }
+  catch { console.log("  !! " + b.id + "_course.json is damaged — restore it from " + b.id + "_course.json.bak"); }
+  console.log("  " + b.name.padEnd(9) + ": " + c + " solved in practice, " + d.attempts.length + " test attempts, " + n + " notes");
 }
 console.log("\nKeep this window open. Press Ctrl+C to stop.\n");
 server.listen(port, "0.0.0.0");

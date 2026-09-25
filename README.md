@@ -16,6 +16,8 @@ arena/
   sreedhar_progress.json     so a pull can't touch them.
   guidely_notes.json      <- what you wrote while practising, per bank. Their own
   sreedhar_notes.json        files, on purpose.
+  guidely_course.json     <- which questions you have solved in Practice, per bank.
+  sreedhar_course.json
 ```
 
 Coming from the old layout (Guidely loose in `data/`, `progress.json`)? The
@@ -73,15 +75,22 @@ each file, never on the name. To add a bank: put its `questions.json`, `sets.jso
 
 The mode is the first thing you pick, because it decides what the session is for.
 
-**Practice** — keep answering until you get it right. The clock runs in the open
-and only stops when you land it; a wrong pick greys out and the clock keeps
-going. The working is there when you want it, and under every question is a note
-box. **Nothing else is saved** — no attempts, no session, no mark on your
-progress. The only thing a practice run leaves behind is what you wrote down.
+**Practice is a course.** Pick a section, then a topic (or a subtopic), and
+**Continue** takes the next unsolved questions from where you stopped — never a
+shuffle. The order is the map's order: section, topic, subtopic by name, then the
+bank's own order. Keep answering until you get it right; the clock runs in the
+open. A question is **solved** once you reach the right answer, however many
+tries; *Show me* and Skip leave it open, so it comes back first next time.
+Questions on one passage or chart always travel together. *Per sitting* sets how
+many come at once (10 / 20 / 50 / all); *Revise solved* walks the ones you have
+done without changing anything. Every topic's % is its questions, every
+section's % is its topics. What you solve lives in `<bank>_course.json`; notes
+are still written under each question.
 
-**Test** — one pick per question, clock up, nothing revealed. Marked at the end,
-where every question reopens with its passage, chart, answer and working. This is
-the only thing that moves Progress.
+**Test** — one pick per question, clock up, nothing revealed, chosen with the
+step-by-step picker. Marked at the end, where every question reopens with its
+passage, chart, answer and working. Tests have their own score history and do
+not tick off course questions.
 
 Keys: `A`–`E` answer · `K` skip · `S` show me (practice) · `Enter` continue.
 
@@ -114,8 +123,9 @@ preset clears everything below it and starts the funnel again.
 
 ## Progress, and Reset
 
-**Progress** is one hierarchy: Everything → Section → Topic → Subtopic. A
-question counts once you have answered it correctly **in a test**. Every number
+**Progress** is one hierarchy: Everything → Section → Topic → Subtopic, with a
+**Course | Tests** switch. Course counts what you solved in Practice; Tests
+counts what you answered correctly in a test. Every number
 is a rollup — a topic is the sum of its subtopics, a section the sum of its
 topics — so the levels can never disagree with each other.
 

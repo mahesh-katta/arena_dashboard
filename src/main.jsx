@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useReducer } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Progress, Notes, loadData, emptyFilter, buildBlocks, keysUnder, masteredKeys, qKey, setBank, DATA_BASE,
-  loadResume, saveResume, ago,
+  loadResume, saveResume, ago, Course, courseOrder, courseSession, buildTree, nodeAt,
 } from "./store.js";
+import CourseView from "./Course.jsx";
 import Funnel, { Landing } from "./Funnel.jsx";
 import Runner from "./Runner.jsx";
 import ProgressView from "./Progress.jsx";
@@ -27,6 +28,10 @@ if (BANK_ID) {
 
 const progress = new Progress();
 const notes = new Notes();
+const course = new Course();
+const LASTKEY = "arena.course.last." + BANK_ID;
+const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
+const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 const DEFAULT_BANKS = [
   { id: "guidely", name: "Guidely", note: "Topic-wise sets from the Guidely PDFs", available: true },
@@ -78,11 +83,11 @@ function Entry({ banks }) {
   useEffect(() => {
     banks.forEach(async (b) => {
       try {
-        const [p, n] = await Promise.all([
-          fetch("api/progress?bank=" + b.id).then((r) => r.json()),
+        const [c, n] = await Promise.all([
+          fetch("api/course?bank=" + b.id).then((r) => r.json()).catch(() => ({})),
           fetch("api/notes?bank=" + b.id).then((r) => r.json()),
         ]);
-        setStats((s) => ({ ...s, [b.id]: { answered: (p.attempts || []).length, notes: Object.keys(n.notes || {}).length } }));
+        setStats((s) => ({ ...s, [b.id]: { solved: Object.keys(c.done || {}).length, notes: Object.keys(n.notes || {}).length } }));
       } catch {}
     });
   }, [banks.map((b) => b.id).join()]);
@@ -113,13 +118,13 @@ function Entry({ banks }) {
                   <p>{b.note}</p>
                   <div className="bankstats num">
                     {!b.available ? <span>not installed</span> : st
-                      ? <><span>{st.answered.toLocaleString()} answered</span><span>{st.notes.toLocaleString()} notes</span></>
+                      ? <><span>{st.solved.toLocaleString()} solved</span><span>{st.notes.toLocaleString()} notes</span></>
                       : <span>&nbsp;</span>}
                   </div>
                 </div>
                 <div className="bankmodes">
                   <button disabled={!b.available} onClick={() => open(b.id, "&mode=practice")}>
-                    <b>Practice</b><small>until you get it right</small>
+                    <b>Practice</b><small>the course, in order</small>
                   </button>
                   <button disabled={!b.available} onClick={() => open(b.id, "&mode=test")}>
                     <b>Test</b><small>one shot, marked</small>
@@ -188,6 +193,7 @@ function ResumeAsk({ snap, bankName, onYes, onNo }) {
 }
 
 const MENU = [
+  ["course", "Course"],
   ["progress", "Progress"],
   ["stats", "Stats"],
   ["notes", "Notes"],
@@ -208,6 +214,12 @@ function App() {
   const [outcome, setOutcome] = useState(null);
   const [reviewSid, setReviewSid] = useState(null);
   const [ask, setAsk] = useState(null);
+  const [cpath, setCpath] = useState([]);
+  const [climit, setClimitS] = useState(() => readLS("arena.climit", 10));
+  const [lastPath, setLastPath] = useState(() => readLS(LASTKEY, null));
+  const [courseRun, setCourseRun] = useState(null);
+  const orderRef = useRef(null);
+  const setClimit = (v) => { setClimitS(v); writeLS("arena.climit", v); };
   const [, refresh] = useReducer((x) => x + 1, 0);
   const started = useRef(false);
 
@@ -216,24 +228,26 @@ function App() {
   const hydrated = useRef(false);
   const runSnap = useRef(null);
   const live = useRef({});
-  live.current = { view, F, fstep, session, outcome, reviewSid };
+  live.current = { view, F, fstep, session, outcome, reviewSid, cpath, courseRun };
   const persist = () => {
     if (!hydrated.current || !BANK_ID) return;
     const s = live.current;
     saveResume(BANK_ID, {
-      view: s.view, F: s.F, fstep: s.fstep, reviewSid: s.reviewSid,
+      view: s.view, F: s.F, fstep: s.fstep, reviewSid: s.reviewSid, cpath: s.cpath, courseRun: s.courseRun,
       session: s.view === "run" && s.session
         ? { total: s.session.total, blocks: s.session.blocks.map((b) => b.map(qKey)) } : null,
       run: s.view === "run" ? runSnap.current : null,
       outcome: s.view === "done" ? s.outcome : null,
     });
   };
-  useEffect(persist, [view, F, fstep, session, outcome, reviewSid]);
+  useEffect(persist, [view, F, fstep, session, outcome, reviewSid, cpath, courseRun]);
 
   const restore = (snap, d) => {
     if (snap.F) setF({ ...emptyFilter(), ...snap.F });
     setFstep(snap.fstep || 0);
     setReviewSid(snap.reviewSid || null);
+    if (snap.cpath) setCpath(snap.cpath);
+    if (snap.courseRun) setCourseRun(snap.courseRun);
     if (snap.view === "run" && snap.session) {
       const byKey = new Map(d.questions.map((q) => [qKey(q), q]));
       const blocks = snap.session.blocks.map((b) => b.map((k) => byKey.get(k)).filter(Boolean)).filter((b) => b.length);
@@ -260,9 +274,10 @@ function App() {
         } catch {}
         return;
       }
-      await Promise.all([progress.load(), notes.load()]);
+      await Promise.all([progress.load(), notes.load(), course.load()]);
       progress.subscribe(refresh);
       notes.subscribe(refresh);
+      course.subscribe(refresh);
       try {
         const r = await fetch("api/config");
         if (r.ok) {
@@ -276,7 +291,11 @@ function App() {
       setData(d);
 
       const snap = loadResume(BANK_ID);
-      if (MODE === "practice" || MODE === "test") {
+      if (MODE === "practice") {
+        if (snap && snap.cpath) setCpath(snap.cpath);
+        setView("course");
+        hydrated.current = true;
+      } else if (MODE === "test") {
         setF((p) => ({ ...(snap && snap.F ? { ...emptyFilter(), ...snap.F } : p), style: MODE }));
         setFstep(0);
         setView("funnel");
@@ -291,7 +310,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const bye = () => { progress.flushBeacon(); persist(); };
+    const bye = () => { progress.flushBeacon(); course.flushBeacon(); persist(); };
     addEventListener("pagehide", bye);
     return () => removeEventListener("pagehide", bye);
   }, []);
@@ -344,6 +363,23 @@ function App() {
     setSession(s);
     setView("run");
   };
+  const getOrder = () => orderRef.current || (orderRef.current = courseOrder(data));
+  const startCourse = (path, mode) => {
+    const s = buildCourse(path, mode);
+    if (!s.blocks.length) return;
+    setCourseRun({ path, mode, start: course.count });
+    if (mode === "next") { setLastPath(path); writeLS(LASTKEY, path); }
+    launch(s, { ...emptyFilter(), style: "practice", order: "order", limit: climit });
+  };
+  const buildCourse = (path, mode) => courseSession(getOrder(), course.doneSet(), path, mode, climit);
+  const openCourse = (path) => { setCpath((path || []).slice(0, 2)); go("course"); };
+  const courseInfo = () => {
+    if (!courseRun) return null;
+    const n = nodeAt(buildTree(data, course.doneSet()), courseRun.path);
+    return { name: courseRun.path.length ? n.name : "Whole course", done: n.done, total: n.total,
+             level: ["Course", "Section", "Topic", "Subtopic"][courseRun.path.length] };
+  };
+
   const startFrom = (avail) => {
     const s = buildBlocks(avail, F);
     if (s.blocks.length) launch(s);
@@ -362,6 +398,8 @@ function App() {
 
   const finish = (o) => {
     runSnap.current = null;
+    if (o.style === "practice" && courseRun)
+      o = { ...o, mode: courseRun.mode, path: courseRun.path, solvedNow: Math.max(0, course.count - courseRun.start) };
     setOutcome(o);
     setSession(null);
     setView("done");
@@ -390,7 +428,12 @@ function App() {
 
       <main className="wrap">
         {view === "home" && (
-          <Landing notes={notes} progress={progress} bankName={bankName} onPick={openFunnel} />
+          <Landing notes={notes} progress={progress} course={course} bankName={bankName}
+                   onPick={(style) => (style === "practice" ? go("course") : openFunnel("test"))} />
+        )}
+        {view === "course" && (
+          <CourseView data={data} course={course} order={getOrder()} path={cpath} setPath={setCpath}
+                      limit={climit} setLimit={setClimit} lastPath={lastPath} onStart={startCourse} />
         )}
         {view === "funnel" && (
           <Funnel data={data} F={F} setF={setF} step={fstep} setStep={setFstep}
@@ -399,15 +442,19 @@ function App() {
         {view === "run" && session && (
           <Runner key={runKey} data={{ ...data, config }} progress={progress} notes={notes}
                   F={F} session={session} onFinish={finish}
-                  snap={runInit} onSnap={(s) => { runSnap.current = s; persist(); }} />
+                  snap={runInit} onSnap={(s) => { runSnap.current = s; persist(); }}
+                  onSolve={(q, tries) => course.mark(qKey(q), tries)} />
         )}
         {view === "done" && outcome && (
           <Done data={data} outcome={outcome} notes={notes} config={config}
-                onStats={() => go("stats")} onNotes={() => go("notes")} onAgain={() => go("home")} />
+                onStats={() => go("stats")} onNotes={() => go("notes")} onAgain={() => go("home")}
+                courseInfo={outcome.style === "practice" ? courseInfo() : null}
+                onContinue={() => startCourse(courseRun.path, "next")}
+                onCourse={() => openCourse(courseRun ? courseRun.path : [])} />
         )}
         {(view === "progress" || view === "reset") && (
-          <ProgressView data={data} progress={progress} mode={view} refresh={refresh}
-                        onStartSession={testWhatsLeft} />
+          <ProgressView data={data} progress={progress} course={course} mode={view} refresh={refresh}
+                        onStartSession={testWhatsLeft} onCourse={openCourse} />
         )}
         {view === "stats" && (
           <Stats data={data} progress={progress} notes={notes} config={config}
@@ -419,7 +466,7 @@ function App() {
         )}
         {view === "notes" && (
           <NotesView data={data} notes={notes} config={config}
-                     onStartSession={() => openFunnel("practice")} />
+                     onStartSession={() => go("course")} />
         )}
         {view === "sets" && <SetsView data={data} config={config} />}
       </main>

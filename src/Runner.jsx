@@ -129,7 +129,7 @@ function QCard({ q, idx, state, here, practice, note, solo, config, onAnswer, on
   );
 }
 
-export default function Runner({ data, progress, notes, F, session, onFinish, snap, onSnap }) {
+export default function Runner({ data, progress, notes, F, session, onFinish, snap, onSnap, onSolve }) {
   const practice = F.style === "practice";
   const [bi, setBi] = useState(() => Math.min((snap && snap.bi) || 0, session.blocks.length - 1));
   const [states, setStates] = useState(() => (snap && snap.states) || {});
@@ -210,6 +210,7 @@ export default function Runner({ data, progress, notes, F, session, onFinish, sn
       const tries = (s.tries || []).concat(k);
       // the clock only stops when you get there; a wrong pick keeps it running
       setStates((m) => ({ ...m, [qKey(q)]: right ? { tries, solved: true, secs: elapsed() } : { tries } }));
+      if (right && onSolve) onSolve(q, tries.length);
     } else {
       if (s.done) return;
       const secs = elapsed();

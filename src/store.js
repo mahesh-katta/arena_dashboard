@@ -341,8 +341,8 @@ export function masteredKeys(attempts) {
   return done;
 }
 
-export function buildTree(data, attempts) {
-  const done = masteredKeys(attempts);
+export function buildTree(data, attemptsOrDone) {
+  const done = attemptsOrDone instanceof Set ? attemptsOrDone : masteredKeys(attemptsOrDone);
   const root = { name: "Everything", total: 0, done: 0, kind: "root", children: new Map() };
 
   for (const q of data.questions) {
@@ -365,7 +365,7 @@ export function buildTree(data, attempts) {
     }
   }
   const sortKids = (n) => {
-    n.kids = [...n.children.values()].sort((a, b) => a.name.localeCompare(b.name));
+    n.kids = [...n.children.values()].sort((a, b) => byName(a.name, b.name));
     n.kids.forEach(sortKids);
     return n;
   };
@@ -381,6 +381,8 @@ export function nodeAt(tree, path) {
   }
   return n;
 }
+
+const byName = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 
 /* Every question sitting under a node — what a Reset at that node would clear. */
 export function keysUnder(data, path) {
@@ -435,3 +437,125 @@ export const ago = (t) => {
   const h = Math.round(m / 60);
   return h < 24 ? h + " h ago" : Math.round(h / 24) + " d ago";
 };
+
+/* ---------------- the course ----------------
+   Practice is a course: every question has one fixed place in it, and what
+   you have solved is kept in <bank>_course.json. A question is done once you
+   reach the right answer in Practice, however many tries it took; "Show me"
+   and Skip leave it open, so it comes round again.
+
+   The order is the order of the map you see — section, topic, subtopic by
+   name (numbers compared as numbers), then the question bank's own order —
+   so "Continue" always means the next unsolved question, never a shuffle. */
+export class Course {
+  constructor() {
+    this.done = {};
+    this.api = true;
+    this.error = null;
+    this.pending = [];
+    this.flushT = null;
+    this.listeners = new Set();
+  }
+  subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  emit() { this.listeners.forEach((f) => f()); }
+  has(key) { return !!this.done[key]; }
+  get count() { return Object.keys(this.done).length; }
+  doneSet() { return new Set(Object.keys(this.done)); }
+
+  async load() {
+    try {
+      const r = await fetch(api("api/course"), { cache: "no-store" });
+      const d = await r.json();
+      if (!r.ok) { this.error = d.error || "course file unreadable"; throw 0; }
+      this.done = d.done || {};
+      this.api = true;
+    } catch { this.api = !this.error ? false : true; }
+    this.emit();
+  }
+  mark(key, tries) {
+    if (this.done[key]) return;
+    const rec = { key, tries: tries || 1, at: Date.now() };
+    this.done[key] = { at: rec.at, tries: rec.tries };
+    this.pending.push(rec);
+    clearTimeout(this.flushT);
+    this.flushT = setTimeout(() => this.flush(), 500);
+    this.emit();
+  }
+  async flush() {
+    if (!this.api || this.error || !this.pending.length) return;
+    const batch = this.pending.slice();
+    try {
+      const r = await fetch(api("api/course"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ done: batch }),
+      });
+      if (!r.ok) throw 0;
+      this.pending = this.pending.filter((p) => !batch.includes(p));
+    } catch { /* stays queued; the next mark or page close retries */ }
+  }
+  flushBeacon() {
+    if (!this.api || this.error || !this.pending.length || !navigator.sendBeacon) return;
+    if (navigator.sendBeacon(api("api/course"), JSON.stringify({ done: this.pending }))) this.pending = [];
+  }
+  async removeKeys(keys) {
+    let n = 0;
+    for (const k of keys) if (this.done[k]) { delete this.done[k]; n++; }
+    this.pending = this.pending.filter((p) => !keys.includes(p.key));
+    this.emit();
+    if (this.api && !this.error) {
+      try {
+        await fetch(api("api/course"), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remove: keys }),
+        });
+      } catch {}
+      await this.load();
+    }
+    return n;
+  }
+}
+
+/* Every question in course order, with its place in the map. Built once per
+   bank load. */
+export function courseOrder(data) {
+  const rows = data.questions.map((q) => {
+    const m = data.sets[q.set] || {};
+    return { q, path: [m.section || "—", m.topic || "—", m.subtopic || q.set] };
+  });
+  rows.sort((a, b) =>
+    byName(a.path[0], b.path[0]) || byName(a.path[1], b.path[1]) ||
+    byName(a.path[2], b.path[2]) || a.q._i - b.q._i);
+  return rows;
+}
+
+const under = (row, path) => path.every((p, i) => row.path[i] === p);
+
+/* The next stretch of the course under a node of the map. "next" takes the
+   unsolved questions from where you stopped; "revise" walks the ones already
+   solved, in the same order. Questions sharing a passage or chart stay
+   together, and a stretch never cuts a shared block in half. */
+export function courseSession(order, done, path, mode, limit) {
+  const pick = order.filter((r) => under(r, path) && (mode === "revise" ? done.has(qKey(r.q)) : !done.has(qKey(r.q))));
+  const blocks = [];
+  let last = null;
+  for (const { q } of pick) {
+    const k = blockKey(q);
+    if (last && last.k === k) last.qs.push(q);
+    else blocks.push((last = { k, qs: [q] }));
+  }
+  const chosen = [];
+  let n = 0;
+  for (const b of blocks) {
+    if (limit && n && n + b.qs.length > limit) break;
+    chosen.push(b.qs);
+    n += b.qs.length;
+    if (limit && n >= limit) break;
+  }
+  return { blocks: chosen, total: n };
+}
+
+/* Where "Continue" should land: the first unsolved question under a node. */
+export function nextUnder(order, done, path) {
+  const r = order.find((x) => under(x, path) && !done.has(qKey(x.q)));
+  return r || null;
+}
