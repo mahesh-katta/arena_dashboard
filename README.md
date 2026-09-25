@@ -85,11 +85,27 @@ the only thing that moves Progress.
 
 Keys: `A`–`E` answer · `K` skip · `S` show me (practice) · `Enter` continue.
 
+## The entry screen
+
+Two full-height cards, one per bank, each with its own **Practice** and **Test**
+button — one click picks the bank and the mode together (`?bank=…&mode=…`).
+*Progress, stats & notes* under each card opens the bank without starting
+anything.
+
 ## Picking what to drill
 
-Five steps, each narrowing the one below it: **Preset** (all / standalone /
-grouped) → **Sections** → **Topics** → **Subtopics** → **how many and in what
-order**. Leave a step empty to take all of it.
+A step-by-step picker with **Back** and **Next**: **Sections** (with the
+all / standalone / grouped preset on top) → **Topics** → **Subtopics** → **how
+many and in what order** → Start. The live question count sits in the bottom
+bar the whole way. Leave a step empty to take all of it — and a topic can be
+picked without picking its section first.
+
+## Carrying on after a refresh
+
+The screen you are on, the picker and a live run (which set, what you have
+answered) are saved per bank in the browser as you go. Refresh or reopen and
+you are asked **Continue where you left off?**; the entry screen shows the same
+offer. *Start fresh* only drops the snapshot — answers already recorded stay.
 
 Preset sits at the top because standalone-versus-grouped is the broadest cut
 there is, and it is worked out from the data rather than a hand-written list — a
@@ -105,7 +121,8 @@ topics — so the levels can never disagree with each other.
 
 **Reset** is that same hierarchy, walked the same way. Whatever node you are
 standing on is what gets wiped, and the confirmation names it before anything
-happens.
+happens. It asks for a password first — `1234`, set as `RESET_PIN` in
+`src/Progress.jsx`. That is a guard against a slip, not security.
 
 **Notes are never touched by a reset**, at any level. That is why they live in
 `notes.json` rather than inside the progress record: a different lifecycle, and

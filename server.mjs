@@ -267,6 +267,8 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, {
       "Content-Type": TYPES[path.extname(file).toLowerCase()] || "application/octet-stream",
       "Content-Length": size,     // the app shows a real loading percentage from this
+      // always revalidate, so a `git pull` or a rebuild shows up on a plain refresh
+      "Cache-Control": "no-cache",
     });
     createReadStream(file).pipe(res);
   } catch (e) {

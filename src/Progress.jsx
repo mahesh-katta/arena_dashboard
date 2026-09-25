@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { buildTree, nodeAt, keysUnder } from "./store.js";
 
+const RESET_PIN = "1234";
 const pctOf = (n) => (n.total ? (n.done / n.total) * 100 : 0);
 
 function Row({ node, onOpen, mode, onReset }) {
@@ -29,6 +30,8 @@ function Row({ node, onOpen, mode, onReset }) {
 export default function ProgressView({ data, progress, mode, refresh, onStartSession }) {
   const [path, setPath] = useState([]);
   const [pending, setPending] = useState(null);
+  const [pin, setPin] = useState("");
+  const [pinErr, setPinErr] = useState(false);
 
   const tree = useMemo(() => buildTree(data, progress.attempts), [data, progress.attempts.length]);
   const here = nodeAt(tree, path);
@@ -38,8 +41,11 @@ export default function ProgressView({ data, progress, mode, refresh, onStartSes
     const keys = keysUnder(data, nodePath);
     const done = new Set(progress.attempts.map((a) => a.set + "#" + a.q_no));
     setPending({ node, nodePath, keys, hit: keys.filter((k) => done.has(k)).length });
+    setPin("");
+    setPinErr(false);
   };
   const doReset = async () => {
+    if (pin !== RESET_PIN) { setPinErr(true); return; }
     const n = await progress.removeKeys(pending.keys);
     setPending(null);
     refresh();
@@ -130,9 +136,16 @@ export default function ProgressView({ data, progress, mode, refresh, onStartSes
               <li><b>{pending.hit.toLocaleString()}</b> of them have attempts that will be deleted</li>
               <li>Notes: <b>untouched</b></li>
             </ul>
+            <form className="pinrow" onSubmit={(e) => { e.preventDefault(); doReset(); }}>
+              <label htmlFor="resetpin">Password</label>
+              <input id="resetpin" type="password" inputMode="numeric" autoComplete="off" autoFocus
+                     className={pinErr ? "bad" : ""} value={pin} placeholder="Enter the reset password"
+                     onChange={(e) => { setPin(e.target.value); setPinErr(false); }} />
+              {pinErr && <span className="pinerr">Wrong password</span>}
+            </form>
             <div className="sheetfoot">
               <button className="ghost" onClick={() => setPending(null)}>Cancel</button>
-              <button className="danger solid" onClick={doReset}>
+              <button className="danger solid" disabled={!pin} onClick={doReset}>
                 Wipe {pending.hit.toLocaleString()} attempts
               </button>
             </div>

@@ -147,6 +147,13 @@ export class Progress {
       this.pending = this.pending.filter((p) => !batch.includes(p));
     } catch (e) { /* stays queued; the next flush retries */ }
   }
+  /* Last chance on the way out: a refresh or a closed tab must not drop the
+     answers still waiting in the 700 ms debounce. */
+  flushBeacon() {
+    if (!this.api || !this.pending.length || !navigator.sendBeacon) return;
+    const body = JSON.stringify({ attempts: this.pending, sessions: this.sessions.slice(-3) });
+    if (navigator.sendBeacon(api("api/progress"), body)) this.pending = [];
+  }
   async wipe(query) {
     if (this.api) {
       try { await fetch(api("api/progress" + (query ? "?" + query : "")), { method: "DELETE" }); } catch {}
@@ -229,8 +236,6 @@ export function prune(F, sets) {
       s.subtopic === st &&
       (!F.sections.length || F.sections.includes(s.section)) &&
       (!F.topics.length || F.topics.includes(s.topic))));
-  if (!F.sections.length) { F.topics = []; F.subtopics = []; }
-  if (!F.topics.length) F.subtopics = [];
   return F;
 }
 
@@ -408,3 +413,25 @@ export function notesUnder(data, notes, path) {
     (a.subtopic || "").localeCompare(b.subtopic || "") || a.q.q_no - b.q.q_no);
   return rows;
 }
+
+/* ---------------- where you left off ----------------
+   One snapshot per bank in this browser: the screen, the filter, and a live
+   run (which questions, which set you are on, what you have answered). A
+   refresh or a reopened tab offers to carry on from it. */
+const RKEY = (b) => "arena.resume." + b;
+export function loadResume(b) {
+  try { return JSON.parse(localStorage.getItem(RKEY(b)) || "null"); } catch { return null; }
+}
+export function saveResume(b, snap) {
+  try {
+    if (!snap) localStorage.removeItem(RKEY(b));
+    else localStorage.setItem(RKEY(b), JSON.stringify({ ...snap, at: Date.now() }));
+  } catch {}
+}
+export const ago = (t) => {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return m + " min ago";
+  const h = Math.round(m / 60);
+  return h < 24 ? h + " h ago" : Math.round(h / 24) + " d ago";
+};

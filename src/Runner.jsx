@@ -129,17 +129,25 @@ function QCard({ q, idx, state, here, practice, note, solo, config, onAnswer, on
   );
 }
 
-export default function Runner({ data, progress, notes, F, session, onFinish }) {
+export default function Runner({ data, progress, notes, F, session, onFinish, snap, onSnap }) {
   const practice = F.style === "practice";
-  const [bi, setBi] = useState(0);
-  const [states, setStates] = useState({});
-  const [results, setResults] = useState([]);
+  const [bi, setBi] = useState(() => Math.min((snap && snap.bi) || 0, session.blocks.length - 1));
+  const [states, setStates] = useState(() => (snap && snap.states) || {});
+  const [results, setResults] = useState(() => (snap && snap.results) || []);
   const segT = useRef(performance.now());
   const sidRef = useRef(null);
   const listRef = useRef(null);
+  const startedAt = useRef((snap && snap.started) || Date.now());
 
   /* A practice run writes nothing but notes: no session row, no attempts, no
-     mark on your progress. Only a test creates a session. */
+     mark on your progress. Only a test creates a session. A resumed test keeps
+     the session it started with. */
+  if (!practice && !sidRef.current && snap && snap.sid) {
+    sidRef.current = snap.sid;
+    if (!progress.sessions.some((x) => x.sid === snap.sid))
+      progress.startSession({ sid: snap.sid, started: snap.started || Date.now(), planned: session.total,
+                              style: "test", filter: { ...F } });
+  }
   if (!practice && !sidRef.current) {
     sidRef.current = "s_" + uid();
     progress.startSession({
@@ -168,6 +176,9 @@ export default function Runner({ data, progress, notes, F, session, onFinish }) 
   const blockDone = openIdx === -1;
 
   useEffect(() => { segT.current = performance.now(); }, [bi]);
+  useEffect(() => {
+    if (onSnap) onSnap({ bi, states, results, sid: SID, started: startedAt.current });
+  }, [bi, states, results]);
 
   const elapsed = () => {
     const s = (performance.now() - segT.current) / 1000;
