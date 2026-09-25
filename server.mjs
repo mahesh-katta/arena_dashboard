@@ -1,16 +1,21 @@
-/* Area Drill — serves the app and keeps your progress.
+/* Arena Drill — serves the app and keeps your progress.
  *
  *     node server.mjs            http://localhost:8000
  *     node server.mjs 8080       a different port
  *
  * No dependencies: Node's own http and fs, nothing installed. Layout:
  *
- *     area/
- *       app/          this folder (the git repo — `git pull` updates the UI)
- *         dist/       the built app
+ *     arena/
+ *       app/                   this folder (the git repo — `git pull` updates the UI)
+ *         dist/                the built app
  *         server.mjs
- *       data/         questions.json, sets.json, charts/   (set up once)
- *       progress.json written here, outside the repo, so a pull never touches it
+ *       data/                  one folder per question bank (set up once)
+ *         guidely/             questions.json, sets.json, charts/, pdfs/
+ *         sreedhar/            questions.json, sets.json, charts/
+ *       guidely_progress.json  written here, outside the repo, so a pull never
+ *       guidely_notes.json     touches them — one pair per bank
+ *       sreedhar_progress.json
+ *       sreedhar_notes.json
  *
  * Routes:
  *     /                     the app
@@ -25,12 +30,12 @@
  *
  * Notes live in their own file. Reset, at any scope, never touches them.
  *
- * Question banks: Guidely lives in data/ (progress.json, notes.json). Any other
- * bank lives in data/<bank>/ and keeps its own progress-<bank>.json and
- * notes-<bank>.json. The API picks the bank from ?bank=<id>; no bank = Guidely.
+ * Question banks: every bank lives in data/<bank>/ and keeps its own
+ * <bank>_progress.json and <bank>_notes.json. The API picks the bank from
+ * ?bank=<id>; no bank (or an unknown one) = guidely.
  */
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, statSync, renameSync, mkdirSync } from "node:fs";
 import { readFile, writeFile, rename, copyFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -39,20 +44,46 @@ const APP = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(APP);
 const DIST = path.join(APP, "dist");
 const DATA = path.join(ROOT, "data");
-const STORE = path.join(ROOT, "progress.json");
-const NOTES = path.join(ROOT, "notes.json");
 const EMPTY = { version: 1, sessions: [], attempts: [] };
 
 const BANKS = [
-  { id: "guidely", name: "Guidely", note: "Topic-wise sets from the Guidely PDFs", dir: DATA },
-  { id: "sreedhar", name: "Sreedhar", note: "81 full IBPS mock tests, tagged by topic", dir: path.join(DATA, "sreedhar") },
-];
+  { id: "guidely", name: "Guidely", note: "Topic-wise sets from the Guidely PDFs" },
+  { id: "sreedhar", name: "Sreedhar", note: "81 full IBPS mock tests, tagged by topic" },
+].map((b) => ({ ...b, dir: path.join(DATA, b.id) }));
 const bankOf = (url) => {
   const b = url.searchParams.get("bank");
-  return b && b !== "guidely" && BANKS.some((x) => x.id === b) ? b : null;
+  return BANKS.some((x) => x.id === b) ? b : "guidely";
 };
-const storeFile = (b) => (b ? path.join(ROOT, "progress-" + b + ".json") : STORE);
-const notesFile = (b) => (b ? path.join(ROOT, "notes-" + b + ".json") : NOTES);
+const storeFile = (b) => path.join(ROOT, b + "_progress.json");
+const notesFile = (b) => path.join(ROOT, b + "_notes.json");
+const STORE = storeFile("guidely");
+const NOTES = notesFile("guidely");
+
+/* One-time move from the old layout (Guidely loose in data/, progress.json,
+   progress-<bank>.json) to one folder and one file pair per bank. Only renames,
+   only when the new name is free — nothing is overwritten or deleted. */
+function migrateLayout() {
+  const moves = [
+    [path.join(DATA, "questions.json"), path.join(DATA, "guidely", "questions.json")],
+    [path.join(DATA, "sets.json"), path.join(DATA, "guidely", "sets.json")],
+    [path.join(DATA, "charts"), path.join(DATA, "guidely", "charts")],
+    [path.join(DATA, "guidely-pdfs"), path.join(DATA, "guidely", "pdfs")],
+    [path.join(ROOT, "progress.json"), STORE],
+    [path.join(ROOT, "progress.json.bak"), STORE + ".bak"],
+    [path.join(ROOT, "notes.json"), NOTES],
+    [path.join(ROOT, "notes.json.bak"), NOTES + ".bak"],
+  ];
+  for (const b of BANKS) {
+    moves.push([path.join(ROOT, "progress-" + b.id + ".json"), storeFile(b.id)]);
+    moves.push([path.join(ROOT, "notes-" + b.id + ".json"), notesFile(b.id)]);
+  }
+  for (const [from, to] of moves) {
+    if (!existsSync(from) || existsSync(to)) continue;
+    mkdirSync(path.dirname(to), { recursive: true });
+    renameSync(from, to);
+    console.log("  moved " + path.relative(ROOT, from) + " -> " + path.relative(ROOT, to));
+  }
+}
 
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -137,8 +168,8 @@ const server = createServer(async (req, res) => {
   try {
     if (p === "/api/config") {
       return json(res, {
-        pdfs: existsSync(path.join(DATA, "guidely-pdfs")),
-        charts: existsSync(path.join(DATA, "charts")),
+        pdfs: existsSync(path.join(DATA, "guidely", "pdfs")),
+        charts: existsSync(path.join(DATA, "guidely", "charts")),
         api: true,
         banks: BANKS.map(({ id, name, note, dir }) => ({
           id, name, note, available: existsSync(path.join(dir, "questions.json")),
@@ -246,20 +277,22 @@ const server = createServer(async (req, res) => {
 });
 
 const port = Number(process.argv[2]) || 8000;
-const missing = ["questions.json", "sets.json"].filter((f) => !existsSync(path.join(DATA, f)));
-if (missing.length) {
-  console.log("The question bank is missing: " + missing.join(", "));
-  console.log("Expected in: " + DATA);
-  console.log("Copy the data folder in beside this app, then run this again.\n");
+migrateLayout();
+for (const b of BANKS) {
+  const missing = ["questions.json", "sets.json"].filter((f) => !existsSync(path.join(b.dir, f)));
+  if (missing.length)
+    console.log("The " + b.name + " bank is missing " + missing.join(", ") + " (expected in " + b.dir + ")\n");
 }
 if (!existsSync(path.join(DIST, "app.js")))
   console.log("dist/app.js is missing — run:  node build.mjs\n");
 
-const doc = await readStore();
-console.log("Area Drill");
+console.log("Arena Drill");
 console.log("  http://localhost:" + port);
-console.log("  data     : " + DATA);
-console.log("  progress : " + STORE + "  (" + doc.attempts.length + " attempts)");
-console.log("  notes    : " + NOTES + "  (" + Object.keys((await readNotes()).notes).length + " written)");
+console.log("  data : " + DATA);
+for (const b of BANKS) {
+  const d = await readStore(storeFile(b.id));
+  const n = Object.keys((await readNotes(notesFile(b.id))).notes).length;
+  console.log("  " + b.name.padEnd(9) + ": " + d.attempts.length + " attempts, " + n + " notes  (" + b.id + "_progress.json)");
+}
 console.log("\nKeep this window open. Press Ctrl+C to stop.\n");
 server.listen(port, "0.0.0.0");

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { PACE, pace, fmt, qKey, pdfSrc, imgSrc } from "./store.js";
+import { PACE, pace, fmt, qKey, pdfSrc, imgSrc, BANK } from "./store.js";
 import Rich from "./Rich.jsx";
 
 function Tile({ k, v, sub }) {
@@ -255,7 +255,7 @@ export function Stats({ data, progress, notes, onReview, onStart, config }) {
       <h3 style={{ margin: "26px 0 10px" }}>Backup</h3>
       <p className="note">
         {progress.api
-          ? "Progress lives in progress.json and notes in notes.json, both beside the app."
+          ? "Progress lives in " + BANK + "_progress.json and notes in " + BANK + "_notes.json, both beside the app."
           : "The server isn't running, so nothing here is being saved. Start it with start.command or start.bat."}
       </p>
       <div className="toolrow">

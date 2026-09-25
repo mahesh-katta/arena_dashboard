@@ -1,7 +1,7 @@
 #!/bin/bash
-# Double-click this to run Area Drill.
+# Double-click this to run Arena Drill.
 cd "$(dirname "$0")/.."
-echo "Starting Area Drill…"
+echo "Starting Arena Drill…"
 if command -v node >/dev/null 2>&1; then
   node app/server.mjs 8000 &
 elif command -v python3 >/dev/null 2>&1; then

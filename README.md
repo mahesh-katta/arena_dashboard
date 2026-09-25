@@ -1,18 +1,26 @@
-# Area Drill
+# Arena Drill
 
 Practice and timed tests over your own question bank.
 
 ```
-area/
-  app/            <- this repo. `git pull` here updates the whole interface.
-    dist/            the built app (committed on purpose — see below)
-    src/             the React source
-    server.mjs       the server + progress/notes API (Node, no dependencies)
-    start.command    double-click launcher (Mac) — start.bat on Windows
-  data/           <- questions.json, sets.json, charts/   (set up once, never changes)
-  progress.json   <- what you got right in tests. Outside the repo, so a pull can't touch it.
-  notes.json      <- what you wrote while practising. Its own file, on purpose.
+arena/
+  app/                    <- this repo. `git pull` here updates the whole interface.
+    dist/                    the built app (committed on purpose — see below)
+    src/                     the React source
+    server.mjs               the server + progress/notes API (Node, no dependencies)
+    start.command            double-click launcher (Mac) — start.bat on Windows
+  data/                   <- one folder per question bank (set up once, never changes)
+    guidely/                 questions.json, sets.json, charts/, pdfs/
+    sreedhar/                questions.json, sets.json, charts/
+  guidely_progress.json   <- what you got right in tests, per bank. Outside the repo,
+  sreedhar_progress.json     so a pull can't touch them.
+  guidely_notes.json      <- what you wrote while practising, per bank. Their own
+  sreedhar_notes.json        files, on purpose.
 ```
+
+Coming from the old layout (Guidely loose in `data/`, `progress.json`)? The
+server moves it into this one the first time it starts — renames only,
+nothing overwritten or deleted.
 
 ## Running it
 
@@ -41,19 +49,18 @@ after.
 
 ## Question banks
 
-The home screen first asks which bank: **Guidely** (topic-wise sets, `data/`)
-or **Sreedhar** (81 IBPS mock tests, `data/sreedhar/`). The choice sits in the
-URL (`?bank=guidely` / `?bank=sreedhar`); the chip next to the logo switches.
+The home screen first asks which bank: **Guidely** (topic-wise sets) or
+**Sreedhar** (81 IBPS mock tests). Both follow the same convention: the bank's
+questions in `data/<bank>/` and its history in `<bank>_progress.json` /
+`<bank>_notes.json`. The choice sits in the URL (`?bank=guidely` /
+`?bank=sreedhar`); the chip next to the logo switches. Reset in one bank never
+touches the other.
 
-Each bank keeps its own history: Guidely uses `progress.json` / `notes.json`,
-any other bank `progress-<bank>.json` / `notes-<bank>.json`, all beside `app/`.
-Reset in one bank never touches the other.
-
-A non-Guidely bank may mark text with `**bold**`, `__underline__` and
-`[img:charts/...]` (a picture inside a question or option); `src/Rich.jsx`
-renders them. Guidely text is shown exactly as stored. To add a bank: put its
-`questions.json`, `sets.json` and `charts/` in `data/<id>/` and list it in
-`BANKS` in `server.mjs`.
+A non-Guidely bank may mark text with `**bold**`, `__underline__`,
+`[img:charts/...]` (a picture inside a question or option) and table rows
+`| a | b |`; `src/Rich.jsx` renders them. Guidely text is shown exactly as
+stored. To add a bank: put its `questions.json`, `sets.json` and `charts/` in
+`data/<id>/` and list it in `BANKS` in `server.mjs`.
 
 ## Practice vs Test
 
@@ -99,7 +106,7 @@ nothing about clearing your attempts should cost you what you learned.
 
 ## Your files
 
-`progress.json` and `notes.json` sit beside the app, outside the repo. The same
+`<bank>_progress.json` and `<bank>_notes.json` (one pair per bank) sit beside the app, outside the repo. The same
 history in every browser, and on your phone over wifi if you open the machine's
 address instead of localhost. Back either up by copying the file; Stats has an
 Export for progress.
@@ -147,7 +154,7 @@ the browser still points at the real line in `src/`.
 
 ## The data folder
 
-`data/` is the question bank: `questions.json`, `sets.json`, and `charts/` (the
-images for questions whose content is a picture, which text extraction can never
-recover). Optionally `data/guidely-pdfs/` — if it's there, every question links
-to its source PDF; if not, those links simply don't appear.
+`data/<bank>/` is one question bank: `questions.json`, `sets.json`, and `charts/`
+(the images for questions whose content is a picture, which text extraction can
+never recover). Optionally `data/guidely/pdfs/` — if it's there, every Guidely
+question links to its source PDF; if not, those links simply don't appear.

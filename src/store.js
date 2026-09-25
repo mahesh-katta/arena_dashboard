@@ -9,20 +9,19 @@ export const fmt = (s) =>
   s < 60 ? s.toFixed(1) + "s" : Math.floor(s / 60) + "m " + Math.round(s % 60) + "s";
 export const pace = (s) => (s <= PACE ? "fast" : s <= PACE * 2 ? "ok" : "slow");
 export const qKey = (q) => q.set + "#" + q.q_no;
-/* Which question bank this page is on. Guidely lives in data/, any other bank
-   in data/<bank>/, and the API is told the bank so each keeps its own
-   progress and notes. Set once at boot from ?bank=, before anything loads. */
+/* Which question bank this page is on. Every bank lives in data/<bank>/ and
+   the API is told the bank, so each keeps its own <bank>_progress.json and
+   <bank>_notes.json. Set once at boot from ?bank=, before anything loads. */
 export let BANK = "guidely";
-export let DATA_BASE = "data/";
+export let DATA_BASE = "data/guidely/";
 export function setBank(b) {
   BANK = b || "guidely";
-  DATA_BASE = BANK === "guidely" ? "data/" : "data/" + BANK + "/";
+  DATA_BASE = "data/" + BANK + "/";
 }
-export const api = (p) =>
-  BANK === "guidely" ? p : p + (p.includes("?") ? "&" : "?") + "bank=" + encodeURIComponent(BANK);
+export const api = (p) => p + (p.includes("?") ? "&" : "?") + "bank=" + encodeURIComponent(BANK);
 
 export const imgSrc = (p) => DATA_BASE + p;
-export const pdfSrc = (slug) => "data/guidely-pdfs/" + encodeURIComponent(slug) + ".pdf";
+export const pdfSrc = (slug) => "data/guidely/pdfs/" + encodeURIComponent(slug) + ".pdf";
 
 /* Questions that share a passage — or a chart image, which is the same thing
    when the data lives in a picture — are one block: you read the stimulus once
@@ -93,7 +92,7 @@ export async function loadData(onProgress) {
 /* ---------------- progress ----------------
    An append-only log of attempts grouped into sessions, plus a flag list.
    Everything Stats shows is derived from it, never stored. It lives in
-   progress.json beside the app, so the history is the same in every browser and
+   <bank>_progress.json beside the app, so the history is the same in every browser and
    on your phone over wifi. The server is the record; without it nothing is saved. */
 export class Progress {
   constructor() {

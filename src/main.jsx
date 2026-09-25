@@ -23,9 +23,9 @@ const DEFAULT_BANKS = [
 
 function BankPick({ banks }) {
   let last = null;
-  try { last = localStorage.getItem("area.bank"); } catch {}
+  try { last = localStorage.getItem("arena.bank"); } catch {}
   const pick = (id) => {
-    try { localStorage.setItem("area.bank", id); } catch {}
+    try { localStorage.setItem("arena.bank", id); } catch {}
     location.search = "?bank=" + encodeURIComponent(id);
   };
   return (
@@ -103,7 +103,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const t = localStorage.getItem("area.theme");
+    const t = localStorage.getItem("arena.theme") || localStorage.getItem("area.theme");
     if (t) document.documentElement.setAttribute("data-theme", t);
     const measure = () => {
       const h = document.querySelector(".top");
@@ -121,7 +121,7 @@ function App() {
     return (
       <>
         <header className="top">
-          <span className="brand">Area <span>Drill</span></span>
+          <span className="brand">Arena <span>Drill</span></span>
         </header>
         <main className="wrap"><BankPick banks={config.banks || DEFAULT_BANKS} /></main>
       </>
@@ -177,7 +177,7 @@ function App() {
   return (
     <>
       <header className="top">
-        <button className="brand" onClick={() => go("home")}>Area <span>Drill</span></button>
+        <button className="brand" onClick={() => go("home")}>Arena <span>Drill</span></button>
         <button className="ghost bankchip" onClick={switchBank} title="Switch question bank">{bankName} ⇄</button>
         <div className="tabs" role="tablist">
           {MENU.map(([v, label]) => (
@@ -190,7 +190,7 @@ function App() {
             (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
           const next = cur === "dark" ? "light" : "dark";
           document.documentElement.setAttribute("data-theme", next);
-          try { localStorage.setItem("area.theme", next); } catch {}
+          try { localStorage.setItem("arena.theme", next); } catch {}
         }}>Theme</button>
       </header>
 
