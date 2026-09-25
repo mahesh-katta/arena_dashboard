@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { PACE, pace, fmt, qKey, pdfSrc, imgSrc, BANK } from "./store.js";
 import Rich from "./Rich.jsx";
+import SourceLine from "./Source.jsx";
 
 function Tile({ k, v, sub }) {
   return (
@@ -49,6 +50,7 @@ function Recap({ rec, q, config }) {
             })}
           </div>
           {q.solution && <div className="sol"><Rich text={q.solution} /></div>}
+          <div className="qfoot"><SourceLine q={q} /></div>
         </div>
       )}
     </div>

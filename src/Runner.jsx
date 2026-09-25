@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { pace, uid, qKey, imgSrc, pdfSrc } from "./store.js";
 import Rich from "./Rich.jsx";
+import SourceLine from "./Source.jsx";
 
 const CALM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const LETTERS = ["a", "b", "c", "d", "e"];
@@ -111,6 +112,7 @@ function QCard({ q, idx, state, here, practice, note, solo, config, onAnswer, on
               </button>
             )}
             {config.pdfs && finished && <a className="srclink" href={pdfSrc(q.set)} target="_blank" rel="noreferrer">PDF</a>}
+            <SourceLine q={q} showAnswer={finished} />
           </>
         ) : (
           <>

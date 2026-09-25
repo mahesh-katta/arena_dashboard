@@ -11,7 +11,7 @@ arena/
     start.command            double-click launcher (Mac) — start.bat on Windows
   data/                   <- one folder per question bank (set up once, never changes)
     guidely/                 questions.json, sets.json, charts/, pdfs/
-    sreedhar/                questions.json, sets.json, charts/
+    sreedhar/                questions.json, sets.json, charts/, source/ (the 81 mock files)
   guidely_progress.json   <- what you got right in tests, per bank. Outside the repo,
   sreedhar_progress.json     so a pull can't touch them.
   guidely_notes.json      <- what you wrote while practising, per bank. Their own
@@ -59,7 +59,14 @@ touches the other.
 A non-Guidely bank may mark text with `**bold**`, `__underline__`,
 `[img:charts/...]` (a picture inside a question or option) and table rows
 `| a | b |`; `src/Rich.jsx` renders them. Guidely text is shown exactly as
-stored. To add a bank: put its `questions.json`, `sets.json` and `charts/` in
+stored.
+
+Every Sreedhar question also shows where it came from — *Source: Model Test 81 ·
+Q61 · Model_Test_1.json* — and **Original** opens it exactly as it sits in that
+source file (`data/sreedhar/source/`), so a missing word or picture can always be
+checked against the real thing. Note the source file numbers run backwards
+(Model_Test_1.json is Model Test 81); the match is made on the test ID inside
+each file, never on the name. To add a bank: put its `questions.json`, `sets.json` and `charts/` in
 `data/<id>/` and list it in `BANKS` in `server.mjs`.
 
 ## Practice vs Test

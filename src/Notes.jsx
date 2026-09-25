@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { notesUnder, imgSrc, pdfSrc, qKey } from "./store.js";
 import Rich from "./Rich.jsx";
+import SourceLine from "./Source.jsx";
 
 /* Notes read as a book: pick a topic, then walk its notes in order, each one
    sitting under the question that prompted it. Not a search box over a flat
@@ -89,6 +90,7 @@ export default function NotesView({ data, notes, config, onStartSession }) {
                     <span> — <Rich text={row.q.options[row.q.answer.toLowerCase()]} /></span>}
                 </div>
               )}
+              <div className="qfoot"><SourceLine q={row.q} /></div>
 
               {isEditing ? (
                 <div className="noteedit">

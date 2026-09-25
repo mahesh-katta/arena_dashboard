@@ -434,3 +434,17 @@ img.inl{display:block; max-width:100%; max-height:260px; margin:6px 0; border-ra
 .dtable th{white-space:normal; font-weight:600; background:var(--surface-2)}
 .dtable tbody th{text-align:left}
 .dtable tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--surface-2) 45%, transparent)}
+
+/* where a question came from, and the original as it sits in the source file */
+.srcline{font-size:11.5px; color:var(--faint)}
+.origpanel{flex-basis:100%; margin-top:6px; padding:10px 12px; border:1px dashed var(--line);
+     border-radius:8px; background:var(--surface-2); font-size:13px; line-height:1.5; overflow-x:auto}
+.origpanel img{max-width:100%; height:auto; background:#fff}
+.origpanel table{border-collapse:collapse; margin:6px 0}
+.origpanel td,.origpanel th{border:1px solid var(--line); padding:3px 6px}
+.orighead{font-size:11px; color:var(--faint); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em}
+.origdir{margin-bottom:8px; color:var(--muted)}
+.origq{margin-bottom:6px}
+.origopts{list-style:none; padding:0; margin:6px 0}
+.origopts li{display:flex; gap:8px; padding:3px 6px; border-radius:6px}
+.origopts li.right{background:var(--fast-soft)}
