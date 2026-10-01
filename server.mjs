@@ -16,6 +16,7 @@
  *       guidely_notes.json     touches them — one pair per bank
  *       sreedhar_progress.json
  *       sreedhar_notes.json
+ *       sreedhar_mocks.json  every full-mock sitting, with its timings
  *
  * Routes:
  *     /                     the app
@@ -29,6 +30,10 @@
  *     POST   /api/notes     write or clear one note
  *     GET    /api/course    which questions you have solved in Practice
  *     POST   /api/course    mark solved ({done:[...]}) or un-mark ({remove:[keys]})
+ *     GET    /api/mocks     the full mock tests in data/<bank>/source/ (see mocks.mjs)
+ *     GET    /api/mock-attempts         every mock sitting, finished or in progress
+ *     POST   /api/mock-attempts         save one sitting ({attempt}), by id
+ *     DELETE /api/mock-attempts?id=…    drop one sitting
  *
  * Notes live in their own file. Reset, at any scope, never touches them.
  *
@@ -41,6 +46,7 @@ import { createReadStream, existsSync, statSync, renameSync, mkdirSync } from "n
 import { readFile, writeFile, rename, copyFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { mockIndex } from "./mocks.mjs";
 
 const APP = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(APP);
@@ -59,6 +65,7 @@ const bankOf = (url) => {
 const storeFile = (b) => path.join(ROOT, b + "_progress.json");
 const notesFile = (b) => path.join(ROOT, b + "_notes.json");
 const courseFile = (b) => path.join(ROOT, b + "_course.json");
+const mocksFile = (b) => path.join(ROOT, b + "_mocks.json");
 const STORE = storeFile("guidely");
 const NOTES = notesFile("guidely");
 
@@ -130,6 +137,16 @@ async function readCourse(file) {
   return { version: 1, done: d.done || {} };
 }
 
+/* Mock sittings, like the course file: a file that will not parse is refused,
+   never treated as empty, so a damaged one cannot be overwritten. */
+async function readMocks(file) {
+  let raw;
+  try { raw = await readFile(file, "utf8"); }
+  catch { return { version: 1, attempts: {} }; }
+  const d = JSON.parse(raw);
+  return { version: 1, attempts: d.attempts || {} };
+}
+
 /* atomic: a crash mid-write must not shred either file */
 async function writeJSON(file, doc) {
   if (existsSync(file)) await copyFile(file, file + ".bak");
@@ -187,6 +204,7 @@ const server = createServer(async (req, res) => {
         api: true,
         banks: BANKS.map(({ id, name, note, dir }) => ({
           id, name, note, available: existsSync(path.join(dir, "questions.json")),
+          mocks: existsSync(path.join(dir, "source")),
         })),
       });
     }
@@ -230,6 +248,47 @@ const server = createServer(async (req, res) => {
           for (const k of payload.remove || []) if (doc.done[k]) { delete doc.done[k]; changed++; }
           if (changed) await writeJSON(CF, doc);
           return { ok: true, changed, done: Object.keys(doc.done).length };
+        }));
+      }
+      res.writeHead(405).end();
+      return;
+    }
+
+    if (p === "/api/mocks") {
+      if (req.method !== "GET") { res.writeHead(405).end(); return; }
+      return json(res, await mockIndex(DATA, bank));
+    }
+
+    if (p === "/api/mock-attempts") {
+      const MF = mocksFile(bank);
+      const damaged = { ok: false, error: path.basename(MF) + " is damaged — restore it from the .bak" };
+      if (req.method === "GET") {
+        try { return json(res, await serial(() => readMocks(MF))); }
+        catch { return json(res, damaged, 500); }
+      }
+      if (req.method === "POST") {
+        const { attempt } = await body(req);
+        if (!attempt || !attempt.id) return json(res, { ok: false, error: "no attempt" }, 400);
+        return json(res, await serial(async () => {
+          let doc;
+          try { doc = await readMocks(MF); } catch { return damaged; }
+          const old = doc.attempts[attempt.id];
+          // a finished sitting is final: a late autosave of the live state cannot reopen it
+          if (old && old.status === "done" && attempt.status !== "done") return { ok: true, kept: "done" };
+          doc.attempts[attempt.id] = { ...attempt, saved: Date.now() };
+          await writeJSON(MF, doc);
+          return { ok: true, attempts: Object.keys(doc.attempts).length };
+        }));
+      }
+      if (req.method === "DELETE") {
+        const id = url.searchParams.get("id");
+        return json(res, await serial(async () => {
+          let doc;
+          try { doc = await readMocks(MF); } catch { return damaged; }
+          if (!id || !doc.attempts[id]) return { ok: true, removed: 0 };
+          delete doc.attempts[id];
+          await writeJSON(MF, doc);
+          return { ok: true, removed: 1 };
         }));
       }
       res.writeHead(405).end();
@@ -338,7 +397,12 @@ for (const b of BANKS) {
   let c = 0;
   try { c = Object.keys((await readCourse(courseFile(b.id))).done).length; }
   catch { console.log("  !! " + b.id + "_course.json is damaged — restore it from " + b.id + "_course.json.bak"); }
-  console.log("  " + b.name.padEnd(9) + ": " + c + " solved in practice, " + d.attempts.length + " test attempts, " + n + " notes");
+  let mk = "";
+  try {
+    const m = Object.values((await readMocks(mocksFile(b.id))).attempts);
+    if (m.length) mk = ", " + m.filter((a) => a.status === "done").length + " mocks sat";
+  } catch { console.log("  !! " + b.id + "_mocks.json is damaged — restore it from " + b.id + "_mocks.json.bak"); }
+  console.log("  " + b.name.padEnd(9) + ": " + c + " solved in practice, " + d.attempts.length + " test attempts, " + n + " notes" + mk);
 }
 console.log("\nKeep this window open. Press Ctrl+C to stop.\n");
 server.listen(port, "0.0.0.0");

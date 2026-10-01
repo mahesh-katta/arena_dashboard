@@ -879,3 +879,186 @@ html,body{overflow-x:clip}
   .unitgrid{grid-template-columns:1fr}
   .kindseg{max-width:none}
 }
+
+/* ======================= full mocks ======================= */
+:root{ --mk:#8B5CF6; --mk-soft:rgba(139,92,246,.16); --to:#64748B; --grad-mock:linear-gradient(135deg,#8B5CF6,#0EA5E9) }
+.bankmodes.three{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:520px){ .bankmodes.three{grid-template-columns:1fr} }
+.modes.three{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){ .modes.three{grid-template-columns:1fr} }
+.modecard.glass.mock b{background:var(--grad-mock); -webkit-background-clip:text; background-clip:text; color:transparent}
+.mock .mcglow{background:var(--grad-mock)}
+.modecard.glass.mock:hover{border-color:rgba(139,92,246,.6); box-shadow:0 20px 50px -20px rgba(139,92,246,.55)}
+.mh3{margin:26px 0 10px}
+
+/* home */
+.mockhome h2{margin:2px 0 4px}
+.livecard{display:flex; align-items:center; gap:12px; margin-top:16px; padding:14px 16px; border-radius:16px; flex-wrap:wrap}
+.livecard > div{flex:1; min-width:200px}
+.livecard b{display:block}
+.livecard small{display:block; color:var(--muted); font-size:12.5px}
+.livedot{width:10px; height:10px; border-radius:50%; background:var(--mk); box-shadow:0 0 0 0 var(--mk); animation:livepulse 1.6s infinite}
+@keyframes livepulse{0%{box-shadow:0 0 0 0 rgba(139,92,246,.6)} 70%{box-shadow:0 0 0 10px rgba(139,92,246,0)} 100%{box-shadow:0 0 0 0 rgba(139,92,246,0)}}
+.mockbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:26px 0 12px; flex-wrap:wrap}
+.mockgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px}
+.mockcard{position:relative; display:flex; flex-direction:column; gap:2px; text-align:left; padding:14px 14px 12px;
+  background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden;
+  transition:transform .14s var(--ease), border-color .14s var(--ease), box-shadow .14s var(--ease)}
+.mockcard:hover{transform:translateY(-2px); border-color:var(--mk); box-shadow:0 10px 24px -14px rgba(139,92,246,.7)}
+.mockcard .mcn{position:absolute; right:10px; top:2px; font-size:34px; font-weight:700; color:var(--surface-2); letter-spacing:-.04em}
+.mockcard .mct{position:relative; font-weight:600; font-size:14px}
+.mockcard .mcs{position:relative; margin-top:6px}
+.mockcard.sat{border-color:color-mix(in srgb, var(--fast) 40%, var(--line))}
+.mockcard.open{border-color:var(--mk)}
+.chip{font-style:normal; font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:99px; background:var(--surface-2); color:var(--muted)}
+.chip.done{background:var(--fast-soft); color:var(--fast)}
+.chip.live{background:var(--mk-soft); color:var(--mk)}
+
+/* setup */
+.mocksetup{max-width:980px}
+.msblock{margin-top:24px}
+.msblock h3{margin-bottom:10px}
+.secpick{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px}
+.secpick .tp{background:var(--surface); border:1px solid var(--line)}
+.tfgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-top:12px}
+.timefield{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 16px}
+.timefield.inf{border-style:dashed}
+.tflabel b{display:block; font-size:14px}
+.tflabel small{display:block; color:var(--faint); font-size:12px}
+.tfctl{display:flex; align-items:center; gap:6px; margin-top:10px}
+.tfctl input{width:84px; font:600 20px "IBM Plex Mono",monospace; text-align:center; color:var(--ink);
+  background:var(--surface-2); border:1px solid var(--line); border-radius:9px; padding:6px 4px}
+.tfctl input:disabled{opacity:.5}
+.tfctl input::-webkit-inner-spin-button{display:none}
+.tfunit{color:var(--muted); font-size:13px; min-width:28px}
+.tfstep,.tfinf{width:34px; height:34px; border-radius:9px; border:1px solid var(--line); background:var(--surface-2);
+  font-size:17px; line-height:1; color:var(--muted)}
+.tfstep:disabled{opacity:.35; cursor:not-allowed}
+.tfinf{margin-left:auto; font-size:20px}
+.tfinf.on{background:var(--grad-mock); color:#fff; border-color:transparent}
+.tfdef{display:block; margin-top:4px}
+.budgetnote{margin-top:10px; padding:10px 12px; border-radius:10px; background:var(--ok-soft); color:var(--ok)}
+.rules{margin:4px 0 18px; padding-left:18px; color:var(--muted); font-size:13.5px; line-height:1.8}
+.summary .tiles{margin-bottom:12px}
+
+/* runner */
+.mockrun.hidden .mocklayout{filter:blur(14px); pointer-events:none; user-select:none}
+.mockbarx{position:sticky; top:var(--stick,60px); z-index:15; display:flex; align-items:stretch; gap:10px; flex-wrap:wrap;
+  padding:10px 14px; border-radius:16px; margin-bottom:16px}
+.mbsec{display:flex; flex-direction:column; justify-content:center; min-width:110px}
+.mbsec b{font-family:Archivo; font-size:19px; line-height:1.1}
+.mbtitle{font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--faint); font-weight:600}
+.mbclock{display:flex; flex-direction:column; justify-content:center; padding:4px 14px; border-radius:12px; background:var(--surface-2); min-width:118px}
+.mbclock small{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); font-weight:600; white-space:nowrap}
+.mbclock .num{font-size:24px; font-weight:600; line-height:1.15}
+.mbclock em{font-style:normal; font-size:10.5px; color:var(--faint)}
+.mbclock.warm .num{color:var(--ok)}
+.mbclock.hot{background:var(--slow-soft)} .mbclock.hot .num{color:var(--slow); animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.55}}
+.mbclock.quiet .num{color:var(--muted); font-size:18px}
+.mbbar{display:block; height:3px; border-radius:2px; background:var(--line); margin-top:3px; overflow:hidden}
+.mbbar b{display:block; height:100%; background:var(--grad-mock)}
+.mbtools{display:flex; align-items:center; gap:8px; margin-left:auto; flex-wrap:wrap}
+.palbtn{display:none}
+.mocklayout{display:grid; grid-template-columns:1fr 268px; gap:18px; align-items:start; transition:filter .25s var(--ease)}
+.mockmain{display:grid; grid-template-columns:1fr; gap:18px; align-items:start; min-width:0}
+.mockmain.withstim{grid-template-columns:minmax(280px,1fr) minmax(320px,1fr)}
+.mstim{top:calc(var(--stick,60px) + 104px); max-height:calc(100vh - var(--stick,60px) - 124px)}
+.mstim img{margin-bottom:10px}
+.grptag{display:inline-block; font-size:11.5px; font-weight:600; color:var(--mk); background:var(--mk-soft); border-radius:99px; padding:3px 10px; margin-bottom:10px}
+.mq{min-width:0}
+.mq .qitem{animation:rise .2s var(--ease) both}
+.qimg{max-width:100%; border-radius:6px; background:#fff; margin-bottom:12px; display:block}
+.grpnav{display:flex; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap}
+.mkpill{background:var(--mk-soft); color:var(--mk)}
+.mockfoot{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center}
+.mockfoot .next{margin-left:auto}
+.ghost.on{border-color:var(--mk); color:var(--mk)}
+.palette{position:sticky; top:calc(var(--stick,60px) + 104px); background:var(--surface); border:1px solid var(--line);
+  border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:12px; max-height:calc(100vh - var(--stick,60px) - 124px); overflow:auto}
+.palsecs{display:flex; gap:6px; flex-wrap:wrap}
+.palsec{font-size:12px; padding:3px 10px; border-radius:99px; background:var(--surface-2); color:var(--muted)}
+.palsec.on{background:var(--grad-mock); color:#fff; font-weight:600}
+.palsec.shut{text-decoration:line-through; opacity:.6}
+.palgrid{display:flex; flex-wrap:wrap; gap:6px}
+.palblk{display:flex; flex-wrap:wrap; gap:5px}
+.palblk.grp{padding:4px; border-radius:10px; border:1.5px dashed var(--mk); background:var(--mk-soft)}
+.palq{width:34px; height:30px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2);
+  font:600 12px "IBM Plex Mono",monospace; color:var(--muted); display:inline-grid; place-items:center; padding:0}
+i.palq{width:14px; height:14px; border-radius:4px; display:inline-block; vertical-align:-2px; margin-right:5px}
+.palq.ans{background:var(--fast); border-color:var(--fast); color:#fff}
+.palq.na{background:var(--slow-soft); border-color:var(--slow); color:var(--slow)}
+.palq.mk{background:var(--mk); border-color:var(--mk); color:#fff; border-radius:50%}
+.palq.mka{background:var(--mk); border-color:var(--fast); color:#fff; border-radius:50%; box-shadow:inset 0 0 0 2px var(--fast)}
+.palq.gone{opacity:.4; background:repeating-linear-gradient(45deg,var(--surface-2) 0 4px,var(--line) 4px 8px)}
+.palq.cur{outline:2px solid var(--accent); outline-offset:2px}
+.palq:disabled{cursor:not-allowed}
+.legend{display:flex; flex-wrap:wrap; gap:6px 12px; font-size:11.5px; color:var(--muted)}
+.palcount{font-size:12px; color:var(--muted)}
+.subtable{margin:10px 0}
+@media(max-width:960px){
+  .mocklayout{grid-template-columns:1fr}
+  .mockmain.withstim{grid-template-columns:1fr}
+  .mstim{position:static; max-height:45vh}
+  .palbtn{display:inline-block}
+  .palette{display:none; position:fixed; z-index:30; inset:auto 12px 12px 12px; top:auto; max-height:70vh;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.6)}
+  .palette.show{display:flex}
+  .mbclock{min-width:0; flex:1}
+  .mbclock .num{font-size:19px}
+}
+
+/* result */
+.mrhead{display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap}
+.scorehero{margin-top:18px; padding:20px 22px; border-radius:20px}
+.shscore{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+.shscore small{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); font-weight:600; margin-right:6px}
+.shscore b{font-size:48px; font-family:Archivo; letter-spacing:-.03em; background:var(--grad-mock); -webkit-background-clip:text; background-clip:text; color:transparent}
+.shscore span{font-size:20px; color:var(--muted)}
+.shscore em{font-style:normal; font-size:13px; font-weight:600; margin-left:10px}
+.shscore em.up{color:var(--fast)} .shscore em.down{color:var(--slow)}
+.shbar{display:flex; height:12px; border-radius:99px; overflow:hidden; margin:14px 0 10px; background:var(--surface-2)}
+.shbar i{display:block}
+.shbar .right,.sw.right{background:var(--fast)}
+.shbar .wrong,.sw.wrong{background:var(--slow)}
+.shbar .timeout,.sw.timeout{background:var(--ok)}
+.shbar .skipped,.sw.skipped{background:var(--line)}
+.shlegend{display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--muted)}
+.sw{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px}
+.sw.band{background:var(--mk-soft); border:1px dashed var(--mk)}
+.sw.dash{height:0; border-top:2px dashed var(--muted); border-radius:0; width:14px; vertical-align:3px}
+.tile.neg .v{color:var(--slow)}
+.insights{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
+.insights li{background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--line); border-radius:10px; padding:10px 14px; font-size:14px}
+.insights li.slow{border-left-color:var(--slow)} .insights li.ok{border-left-color:var(--ok)}
+.insights li.fast{border-left-color:var(--fast)} .insights li.na{border-left-color:var(--mk)}
+.timemap{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:12px 14px}
+.timemap svg{width:100%; height:200px; display:block}
+.tmband{fill:var(--mk-soft)}
+.tmsec{stroke:var(--line); stroke-width:1.5}
+.tmbudget{stroke:var(--muted); stroke-width:1.2; stroke-dasharray:5 4; vector-effect:non-scaling-stroke}
+.tmlabel{font:600 11px "IBM Plex Mono",monospace; fill:var(--faint)}
+.tmbar{cursor:pointer} .tmbar:hover{opacity:.75}
+.tmbar.right{fill:var(--fast)} .tmbar.wrong{fill:var(--slow)} .tmbar.timeout{fill:var(--ok)}
+.tmbar.skipped,.tmbar.unmarked{fill:var(--faint)}
+.timemap .legend{margin-top:8px}
+.mrsplit{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+@media(max-width:900px){ .mrsplit{grid-template-columns:1fr} }
+tr.clicky{cursor:pointer}
+tr.thisrow td{background:var(--mk-soft)}
+.qfilter{flex-wrap:wrap; border-radius:16px}
+.tchip.over{color:var(--slow)}
+.pill.to{background:var(--ok-soft); color:var(--ok)}
+@media(max-width:960px){ .palette{background:var(--surface-solid)} }
+.glassseg button{white-space:nowrap}
+@media(max-width:600px){
+  .mockbarx{padding:8px 10px; gap:6px; border-radius:12px}
+  .mbclock{padding:3px 10px}
+  .mbclock .num{font-size:17px}
+  .mbtools .ghost{padding:5px 6px; font-size:12px}
+  .mbtitle{display:none}
+  .mbclock.quiet{display:none}
+  .mbsec{min-width:0; flex:1 1 100%; flex-direction:row; align-items:baseline; gap:8px}
+  .mbtools{margin-left:0; width:100%}
+  .mbtools .ghost{flex:1}
+}

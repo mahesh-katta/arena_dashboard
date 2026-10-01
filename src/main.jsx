@@ -10,11 +10,15 @@ import Runner from "./Runner.jsx";
 import ProgressView from "./Progress.jsx";
 import NotesView from "./Notes.jsx";
 import { Done, Stats, SetsView, Review } from "./Views.jsx";
+import { MockStore, loadMockIndex, score } from "./mock.js";
+import { MockHome, MockSetup } from "./Mocks.jsx";
+import MockRunner from "./MockRunner.jsx";
+import MockResult from "./MockResult.jsx";
 
 /* The question bank comes from the URL (?bank=guidely / ?bank=sreedhar), so a
    switch is a fresh page: nothing from one bank can leak into the other's
    progress, notes or filters. No bank in the URL = the entry screen asks.
-   ?mode=practice|test jumps straight into the picker; ?resume=1 carries on
+   ?mode=practice|test jumps straight into the picker, ?mode=mock to the full mocks; ?resume=1 carries on
    from the saved snapshot without asking. Both are dropped from the URL once
    read, so a refresh never replays them. */
 const URLP = new URLSearchParams(location.search);
@@ -29,19 +33,21 @@ if (BANK_ID) {
 const progress = new Progress();
 const notes = new Notes();
 const course = new Course();
+const mockStore = new MockStore();
 const LASTKEY = "arena.course.last." + BANK_ID;
 const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 const DEFAULT_BANKS = [
   { id: "guidely", name: "Guidely", note: "Topic-wise sets from the Guidely PDFs", available: true },
-  { id: "sreedhar", name: "Sreedhar", note: "81 full IBPS mock tests, tagged by topic", available: true },
+  { id: "sreedhar", name: "Sreedhar", note: "81 full IBPS mock tests, tagged by topic", available: true, mocks: true },
 ];
 
 /* Mid-work screens get a "carry on?" prompt; the rest just reopen. */
-const ASK_VIEWS = ["funnel", "run"];
+const ASK_VIEWS = ["funnel", "run", "mockrun"];
 const describe = (s, bankName) => {
   if (!s) return "";
+  if (s.view === "mockrun") return bankName + " mock · Model Test " + ((s.mockSel && s.mockSel.n) || "") + " in progress";
   const mode = s.F && s.F.style === "test" ? "test" : "practice";
   if (s.view === "run" && s.session) {
     const nq = s.session.blocks.reduce((a, b) => a + b.length, 0);
@@ -122,13 +128,18 @@ function Entry({ banks }) {
                       : <span>&nbsp;</span>}
                   </div>
                 </div>
-                <div className="bankmodes">
+                <div className={"bankmodes" + (b.mocks ? " three" : "")}>
                   <button disabled={!b.available} onClick={() => open(b.id, "&mode=practice")}>
                     <b>Practice</b><small>the course, in order</small>
                   </button>
                   <button disabled={!b.available} onClick={() => open(b.id, "&mode=test")}>
                     <b>Test</b><small>one shot, marked</small>
                   </button>
+                  {b.mocks && (
+                    <button disabled={!b.available} onClick={() => open(b.id, "&mode=mock")}>
+                      <b>Mock</b><small>full paper, on the clock</small>
+                    </button>
+                  )}
                 </div>
                 <button className="bankmore" disabled={!b.available} onClick={() => open(b.id, "")}>
                   Progress, stats &amp; notes →
@@ -194,6 +205,7 @@ function ResumeAsk({ snap, bankName, onYes, onNo }) {
 
 const MENU = [
   ["course", "Course"],
+  ["mocks", "Mocks"],
   ["progress", "Progress"],
   ["stats", "Stats"],
   ["notes", "Notes"],
@@ -218,6 +230,10 @@ function App() {
   const [climit, setClimitS] = useState(() => readLS("arena.climit", 10));
   const [lastPath, setLastPath] = useState(() => readLS(LASTKEY, null));
   const [courseRun, setCourseRun] = useState(null);
+  const [mocks, setMocks] = useState(null);           // the full-mock index, null until loaded
+  const [mockErr, setMockErr] = useState(null);
+  const [mockSel, setMockSel] = useState(null);       // { mockId, n, attemptId, resumed }
+  const [mockKey, setMockKey] = useState(0);
   const orderRef = useRef(null);
   const setClimit = (v) => { setClimitS(v); writeLS("arena.climit", v); };
   const [, refresh] = useReducer((x) => x + 1, 0);
@@ -228,19 +244,20 @@ function App() {
   const hydrated = useRef(false);
   const runSnap = useRef(null);
   const live = useRef({});
-  live.current = { view, F, fstep, session, outcome, reviewSid, cpath, courseRun };
+  live.current = { view, F, fstep, session, outcome, reviewSid, cpath, courseRun, mockSel };
   const persist = () => {
     if (!hydrated.current || !BANK_ID) return;
     const s = live.current;
     saveResume(BANK_ID, {
       view: s.view, F: s.F, fstep: s.fstep, reviewSid: s.reviewSid, cpath: s.cpath, courseRun: s.courseRun,
+      mockSel: s.mockSel,
       session: s.view === "run" && s.session
         ? { total: s.session.total, blocks: s.session.blocks.map((b) => b.map(qKey)) } : null,
       run: s.view === "run" ? runSnap.current : null,
       outcome: s.view === "done" ? s.outcome : null,
     });
   };
-  useEffect(persist, [view, F, fstep, session, outcome, reviewSid, cpath, courseRun]);
+  useEffect(persist, [view, F, fstep, session, outcome, reviewSid, cpath, courseRun, mockSel]);
 
   const restore = (snap, d) => {
     if (snap.F) setF({ ...emptyFilter(), ...snap.F });
@@ -248,6 +265,7 @@ function App() {
     setReviewSid(snap.reviewSid || null);
     if (snap.cpath) setCpath(snap.cpath);
     if (snap.courseRun) setCourseRun(snap.courseRun);
+    if (snap.mockSel) setMockSel(snap.view === "mockrun" ? { ...snap.mockSel, resumed: true } : snap.mockSel);
     if (snap.view === "run" && snap.session) {
       const byKey = new Map(d.questions.map((q) => [qKey(q), q]));
       const blocks = snap.session.blocks.map((b) => b.map((k) => byKey.get(k)).filter(Boolean)).filter((b) => b.length);
@@ -260,6 +278,8 @@ function App() {
     } else if (snap.view === "done" && snap.outcome) {
       setOutcome(snap.outcome);
       setView("done");
+    } else if (snap.view === "mockrun") {
+      setView(snap.mockSel ? "mockrun" : "mocks");
     } else if (snap.view && snap.view !== "done") setView(snap.view);
   };
 
@@ -274,10 +294,11 @@ function App() {
         } catch {}
         return;
       }
-      await Promise.all([progress.load(), notes.load(), course.load()]);
+      await Promise.all([progress.load(), notes.load(), course.load(), mockStore.load()]);
       progress.subscribe(refresh);
       notes.subscribe(refresh);
       course.subscribe(refresh);
+      mockStore.subscribe(refresh);
       try {
         const r = await fetch("api/config");
         if (r.ok) {
@@ -289,11 +310,15 @@ function App() {
       try { d = await loadData(setPct); }
       catch (e) { setError(e.message); return; }
       setData(d);
+      loadMockIndex(d).then(setMocks).catch((e) => { setMocks([]); setMockErr(e.message); });
 
       const snap = loadResume(BANK_ID);
       if (MODE === "practice") {
         if (snap && snap.cpath) setCpath(snap.cpath);
         setView("course");
+        hydrated.current = true;
+      } else if (MODE === "mock") {
+        setView("mocks");
         hydrated.current = true;
       } else if (MODE === "test") {
         setF((p) => ({ ...(snap && snap.F ? { ...emptyFilter(), ...snap.F } : p), style: MODE }));
@@ -310,7 +335,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const bye = () => { progress.flushBeacon(); course.flushBeacon(); persist(); };
+    const bye = () => { progress.flushBeacon(); course.flushBeacon(); mockStore.flushBeacon(); persist(); };
     addEventListener("pagehide", bye);
     return () => removeEventListener("pagehide", bye);
   }, []);
@@ -333,6 +358,7 @@ function App() {
   const switchBank = () => { persist(); location.href = location.pathname; };
 
   if (!BANK_ID) return <Entry banks={banks} />;
+  const hasMocks = !!(banks.find((b) => b.id === BANK_ID) || {}).mocks;
 
   if (error)
     return (
@@ -396,6 +422,88 @@ function App() {
     launch(buildBlocks(avail, f), f);
   };
 
+  /* ---- full mocks ---- */
+  const mockOf = (id) => (mocks || []).find((m) => m.id === id);
+  /* A finished sitting also counts as a test: every question goes into the
+     Tests progress and Stats, under one session named after the paper. */
+  const recordMock = (att) => {
+    const mk = mockOf(att.mockId);
+    if (!mk || progress.sessions.some((x) => x.sid === att.id)) return;
+    if (!score(att, mk).some((r) => r.q && r.visits > 0)) return;
+    // only questions you actually saw; a paper you never reached says nothing about you
+    const rows = score(att, mk).filter((r) => r.q && r.visits > 0);
+    progress.startSession({ sid: att.id, started: att.started, planned: rows.length, style: "mock",
+                            mock: "Model Test " + att.n + (att.plan.sections.length < mk.sections.length
+                              ? " · " + att.plan.sections.map((i) => mk.sections[i].short).join("+") : "") });
+    for (const r of rows) {
+      const m = data.sets[r.q.set] || {};
+      progress.record({
+        id: att.id + "_" + r.no, sid: att.id, set: r.q.set, q_no: r.q.q_no,
+        topic: m.topic || "", section: m.section || "", subtopic: m.subtopic || "",
+        chosen: r.chosen || "-", answer: r.key.toUpperCase(),
+        correct: r.chosen ? (r.key ? r.chosen === r.key : null) : null,
+        secs: +r.t.toFixed(1), at: att.ended || Date.now(), style: "mock",
+      });
+    }
+    progress.endSession(att.id, rows.length);
+  };
+  const mockFinished = (att) => {
+    recordMock(att);
+    setMockSel({ mockId: att.mockId, n: att.n, attemptId: att.id });
+    setView("mockresult");
+    scrollTo({ top: 0 });
+  };
+  const submitAsIs = (att) => {
+    for (const s of att.plan.sections) if (!att.closed.section[s]) att.closed.section[s] = "submit";
+    att.status = "done"; att.ended = Date.now(); att.paused = false;
+    mockStore.put(att, true);
+    mockFinished(att);
+  };
+  const openMockSetup = (m) => { setMockSel({ mockId: m.id, n: m.n }); setView("mocksetup"); scrollTo({ top: 0 }); };
+  const startMock = (att) => {
+    mockStore.put(att, true);
+    setMockSel({ mockId: att.mockId, n: att.n, attemptId: att.id, resumed: false });
+    setMockKey((k) => k + 1);
+    setView("mockrun");
+    scrollTo({ top: 0 });
+  };
+  const resumeMock = (att) => {
+    setMockSel({ mockId: att.mockId, n: att.n, attemptId: att.id, resumed: true });
+    setMockKey((k) => k + 1);
+    setView("mockrun");
+  };
+  const MockWait = () => (
+    <div className="loading">
+      <div>{mockErr ? "Couldn't read the mocks (" + mockErr + ")." : "Reading the mock papers…"}</div>
+      {!mockErr && <div className="loadbar"><i style={{ width: "60%" }} /></div>}
+      {mockErr && <button className="ghost" onClick={() => go("home")}>Back</button>}
+    </div>
+  );
+  const mockView = () => {
+    if (!mocks) return <MockWait />;
+    const mk = mockSel && mockOf(mockSel.mockId);
+    if (view === "mocks" || !mk) {
+      if (view !== "mocks" && !mk && mocks.length) setTimeout(() => setView("mocks"));
+      return mocks.length ? (
+        <MockHome mocks={mocks} store={mockStore} onSetup={openMockSetup} onResume={resumeMock}
+                  onResult={(a, submit) => (submit ? submitAsIs(a) : mockFinished(a))} />
+      ) : <div className="empty"><h3>No mock papers in this bank</h3><p className="note">Full mocks come from data/{BANK_ID}/source/.</p></div>;
+    }
+    if (view === "mocksetup")
+      return <MockSetup mock={mk} store={mockStore} onStart={startMock} onBack={() => go("mocks")}
+                        onResult={(a) => mockFinished(a)} />;
+    const att = mockSel.attemptId && mockStore.get(mockSel.attemptId);
+    if (!att) { setTimeout(() => setView("mocks")); return null; }
+    if (view === "mockrun") {
+      if (att.status !== "live") { setTimeout(() => mockFinished(att)); return null; }
+      return <MockRunner key={mockKey} mock={mk} attempt={att} store={mockStore} resumed={!!mockSel.resumed}
+                         onFinish={mockFinished} onLeave={() => go("mocks")} />;
+    }
+    if (view === "mockresult")
+      return <MockResult mock={mk} attempt={att} store={mockStore} onBack={() => go("mocks")} onRetake={openMockSetup} />;
+    return null;
+  };
+
   const finish = (o) => {
     runSnap.current = null;
     if (o.style === "practice" && courseRun)
@@ -412,9 +520,9 @@ function App() {
         <button className="brand" onClick={() => go("home")}>Arena <span>Dashboard</span></button>
         <button className={"bankchip " + BANK_ID} onClick={switchBank} title="Switch question bank">{bankName} ⇄</button>
         <div className="tabs" role="tablist">
-          {MENU.map(([v, label]) => (
+          {MENU.filter(([v]) => v !== "mocks" || hasMocks).map(([v, label]) => (
             <button key={v} className={"tab" + (v === "reset" ? " resettab" : "")} role="tab"
-                    aria-selected={view === v} onClick={() => go(v)}>{label}</button>
+                    aria-selected={view === v || (v === "mocks" && view.startsWith("mock"))} onClick={() => go(v)}>{label}</button>
           ))}
         </div>
         <button className="ghost" onClick={() => {
@@ -429,7 +537,8 @@ function App() {
       <main className="wrap">
         {view === "home" && (
           <Landing notes={notes} progress={progress} course={course} bankName={bankName}
-                   onPick={(style) => (style === "practice" ? go("course") : openFunnel("test"))} />
+                   mocks={hasMocks ? { papers: mocks ? mocks.length : 81, sat: mockStore.done().length, live: mockStore.live().length } : null}
+                   onPick={(style) => (style === "practice" ? go("course") : style === "mock" ? go("mocks") : openFunnel("test"))} />
         )}
         {view === "course" && (
           <CourseView data={data} course={course} order={getOrder()} path={cpath} setPath={setCpath}
@@ -469,6 +578,7 @@ function App() {
                      onStartSession={() => go("course")} />
         )}
         {view === "sets" && <SetsView data={data} config={config} />}
+        {view.startsWith("mock") && mockView()}
       </main>
 
       {ask && (

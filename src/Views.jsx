@@ -238,7 +238,7 @@ export function Stats({ data, progress, notes, onReview, onStart, config }) {
                   const sc = as.filter((a) => a.correct !== null);
                   const avg = as.reduce((t, a) => t + a.secs, 0) / as.length;
                   const f = x.filter || {};
-                  const what = [f.preset && f.preset !== "all" ? f.preset : "",
+                  const what = x.mock || [f.preset && f.preset !== "all" ? f.preset : "",
                                 (f.sections || []).join("/"), (f.topics || []).join("/"),
                                 (f.subtopics || []).join("/")].filter(Boolean).join(" · ") || "everything";
                   return (

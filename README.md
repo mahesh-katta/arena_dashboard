@@ -8,6 +8,7 @@ arena/
     dist/                    the built app (committed on purpose — see below)
     src/                     the React source
     server.mjs               the server + progress/notes API (Node, no dependencies)
+    mocks.mjs                reads the mock papers and works out standalone vs group
     start.command            double-click launcher (Mac) — start.bat on Windows
   data/                   <- one folder per question bank (set up once, never changes)
     guidely/                 questions.json, sets.json, charts/, pdfs/
@@ -18,6 +19,7 @@ arena/
   sreedhar_notes.json        files, on purpose.
   guidely_course.json     <- which questions you have solved in Practice, per bank.
   sreedhar_course.json
+  sreedhar_mocks.json     <- every full-mock sitting: answers, clocks, time per question.
 ```
 
 Coming from the old layout (Guidely loose in `data/`, `progress.json`)? The
@@ -93,6 +95,52 @@ passage, chart, answer and working. Tests have their own score history and do
 not tick off course questions.
 
 Keys: `A`–`E` answer · `K` skip · `S` show me (practice) · `Enter` continue.
+
+## Full mocks (Sreedhar)
+
+The **Mock** button on the Sreedhar card (or the **Mocks** tab inside the bank)
+lists all 81 model tests, numbered by the paper's own "MODEL TEST n" — not by
+file name, which runs the other way round.
+
+**Setting up a sitting**
+
+1. *Sections* — the full paper, or any mix of English / Quant / Reasoning.
+2. *Time* — three clocks, each a number or ∞:
+   - each section (default 20 min, set per section),
+   - each standalone question (default 40 s),
+   - each group — the whole passage / puzzle / chart (default 7 min).
+   Settings are remembered for next time. If the question and group budgets
+   add up to more than the section clock, the setup screen says so.
+
+**While sitting it**
+
+- Sections run in paper order and close behind you, as in IBPS. The next one
+  waits until you press Start.
+- Inside a section the palette jumps to any question that still has time.
+  Leaving a question keeps what is left on its clock; a group has one clock
+  that runs while you are on any of its questions.
+- When a question's or group's clock hits zero it locks with whatever you had
+  chosen and moves you on. When the section clock hits zero the section closes.
+- Mark for review, clear, pause (clocks stop and the paper is hidden).
+  Keys: `A`–`E` / `1`–`5` answer, `N` / `→` next, `P` / `←` previous,
+  `M` mark, `X` clear.
+- Everything is saved every few seconds and on refresh, so a closed tab or
+  another device carries on from the same question with the same clocks.
+  Time while the page is closed does not count.
+
+**After it** — score with negative marking, accuracy, attempts, negative
+marks lost, time used against time allowed, per-section and per-topic tables,
+standalone-vs-group comparison, each group's time, a bar for every question's
+time, plain-language takeaways, and every question reopenable with the key and
+the working. Earlier sittings of the same paper are compared. The questions you
+saw also go into Tests progress and Stats, as one session named after the paper.
+
+**Standalone or group?** Worked out from the paper itself (see `mocks.mjs`),
+not from how the bank was tagged: consecutive questions under one direction
+are a run, and the direction is read — a picture or table, "study / read the
+following…" followed by actual material, a passage, or a long block make it a
+group; a rule addressed to each question ("In this question…") or a short
+instruction leaves every question standalone.
 
 ## The entry screen
 

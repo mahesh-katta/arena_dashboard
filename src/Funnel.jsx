@@ -3,12 +3,12 @@ import { matchingSets, pool, prune, inPreset } from "./store.js";
 
 /* Inside a bank: the mode is the first decision, because it changes what the
    whole session is for. */
-export function Landing({ onPick, notes, progress, course, bankName }) {
+export function Landing({ onPick, notes, progress, course, bankName, mocks }) {
   return (
     <div className="landing">
       <p className="eyebrow">{bankName}</p>
       <h1>What are we doing?</h1>
-      <div className="modes">
+      <div className={"modes" + (mocks ? " three" : "")}>
         <button className="modecard glass practice" onClick={() => onPick("practice")}>
           <span className="mcglow" aria-hidden="true" />
           <b>Practice</b>
@@ -27,6 +27,17 @@ export function Landing({ onPick, notes, progress, course, bankName }) {
           </span>
           <em>{progress.attempts.length.toLocaleString()} answered</em>
         </button>
+        {mocks && (
+          <button className="modecard glass mock" onClick={() => onPick("mock")}>
+            <span className="mcglow" aria-hidden="true" />
+            <b>Mock</b>
+            <span>
+              A whole paper as the exam sets it: pick the sections, set the section,
+              question and group clocks, and get a full time-and-score analysis.
+            </span>
+            <em>{mocks.papers} papers · {mocks.sat} sat{mocks.live ? " · " + mocks.live + " open" : ""}</em>
+          </button>
+        )}
       </div>
     </div>
   );
