@@ -109,8 +109,11 @@ file name, which runs the other way round.
    - each section (default 20 min, set per section),
    - each standalone question (default 40 s),
    - each group — the whole passage / puzzle / chart (default 7 min).
-   Settings are remembered for next time. If the question and group budgets
-   add up to more than the section clock, the setup screen says so.
+   *Start from* offers two ready setups: **Last time** (the sections and
+   clocks of your most recent sitting, read from sreedhar_mocks.json, so it is
+   the same on every device) and **Default** (all sections, 20 min / 40 s /
+   7 min). Change anything after picking one. If the question and group
+   budgets add up to more than the section clock, the setup screen says so.
 
 **While sitting it**
 

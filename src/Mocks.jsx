@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { ago } from "./store.js";
-import { DEFAULTS, loadSettings, saveSettings, newAttempt, summarise, fmtLimit, fmtClock } from "./mock.js";
+import { DEFAULTS, newAttempt, summarise, fmtLimit, fmtClock } from "./mock.js";
 
 const pct = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
 const marks = (v) => (Math.round(v * 100) / 100).toString();
@@ -142,12 +142,52 @@ function TimeField({ label, sub, value, unit, def, min = 1, max = 600, onChange 
   );
 }
 
+/* ---------------- where a setup starts from ----------------
+   "Last time" is read off your most recent sitting (any paper), so it is the
+   same on every device — the sittings file is the memory. "Default" is the
+   paper as the exam sets it: every section, 20 min each, 40 s a question,
+   7 min a group. */
+const defaultPreset = (mock) => ({
+  secs: mock.sections.map((_, i) => i),
+  S: { ...DEFAULTS, perSection: {} },
+});
+function lastPreset(mock, store) {
+  const a = store.list().filter((x) => x.plan).sort((x, y) => (y.started || 0) - (x.started || 0))[0];
+  if (!a) return null;
+  const L = a.plan.limits;
+  const secs = a.plan.sections.filter((i) => i < mock.sections.length);
+  if (!secs.length) return null;
+  const toMin = (v) => (v == null ? null : Math.round(v / 60));
+  const perSection = {};
+  for (const i of secs) perSection[i] = toMin(L.section[i]);
+  return {
+    secs, at: a.started, n: a.n,
+    S: { ...DEFAULTS, perSection, questionSec: L.question == null ? null : L.question, groupMin: toMin(L.group) },
+  };
+}
+/* Two setups are the same when they would start the same sitting. */
+const shape = (mock, secs, S) => JSON.stringify({
+  secs: secs.slice().sort(),
+  sec: secs.slice().sort().map((i) => (S.perSection[i] !== undefined ? S.perSection[i] : S.sectionMin)),
+  q: S.questionSec, g: S.groupMin,
+});
+const describePreset = (mock, p) =>
+  p.secs.map((i) => mock.sections[i].short + " " + fmtLimit(p.S.perSection[i] !== undefined ? p.S.perSection[i] : p.S.sectionMin, "m")).join(" · ") +
+  " · " + fmtLimit(p.S.questionSec, "s") + " a question · " + fmtLimit(p.S.groupMin, "m") + " a group";
+
 /* ---------------- setting up one sitting ---------------- */
 export function MockSetup({ mock, store, onStart, onBack, onResult }) {
-  const [S, setS] = useState(loadSettings);
-  const [secs, setSecs] = useState(() => mock.sections.map((_, i) => i));
+  const last = useMemo(() => lastPreset(mock, store), [mock, store.list().length]);
+  const def = useMemo(() => defaultPreset(mock), [mock]);
+  const first = last || def;
+  const [S, setS] = useState(first.S);
+  const [secs, setSecs] = useState(first.secs);
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, []);
-  const set = (patch) => setS((p) => { const n = { ...p, ...patch }; saveSettings(n); return n; });
+  const set = (patch) => setS((p) => ({ ...p, ...patch }));
+  const apply = (p) => { setS(p.S); setSecs(p.secs); };
+  const now = shape(mock, secs, S);
+  const onLast = !!last && now === shape(mock, last.secs, last.S);
+  const onDef = now === shape(mock, def.secs, def.S);
   const secMin = (i) => (S.perSection[i] !== undefined ? S.perSection[i] : S.sectionMin);
   const setSecMin = (i, v) => set({ perSection: { ...S.perSection, [i]: v } });
   const all = secs.length === mock.sections.length;
@@ -168,7 +208,6 @@ export function MockSetup({ mock, store, onStart, onBack, onResult }) {
 
   const start = () => {
     if (!secs.length) return;
-    saveSettings(S);
     onStart(newAttempt(mock, S, secs));
   };
 
@@ -179,6 +218,32 @@ export function MockSetup({ mock, store, onStart, onBack, onResult }) {
       <h2>Set up this sitting</h2>
       <p className="note">{mock.title} · {mock.total} questions · +{mock.sections[0].pos} right, −{mock.sections[0].neg} wrong
         {mock.missing ? " · " + mock.missing + " questions missing from the bank" : ""}</p>
+
+      <section className="msblock">
+        <h3>Start from</h3>
+        <div className="presetpick">
+          {last ? (
+            <button className={"tp" + (onLast ? " on" : "")} aria-pressed={onLast} onClick={() => apply(last)}>
+              <span className="tpcheck" aria-hidden="true">✓</span>
+              <b>Last time</b>
+              <small>Model Test {last.n} · {ago(last.at)}</small>
+              <small className="num">{describePreset(mock, last)}</small>
+            </button>
+          ) : (
+            <div className="tp ghosttp">
+              <b>Last time</b>
+              <small>Nothing yet — after your first mock, its sections and clocks are offered here.</small>
+            </div>
+          )}
+          <button className={"tp" + (onDef ? " on" : "")} aria-pressed={onDef} onClick={() => apply(def)}>
+            <span className="tpcheck" aria-hidden="true">✓</span>
+            <b>Default</b>
+            <small>The paper as the exam sets it</small>
+            <small className="num">{describePreset(mock, def)}</small>
+          </button>
+        </div>
+        {!onLast && !onDef && <p className="note customnote">Custom — changed below. Whatever you start with becomes "Last time".</p>}
+      </section>
 
       <section className="msblock">
         <h3>1 · Sections</h3>

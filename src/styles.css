@@ -1062,3 +1062,13 @@ tr.thisrow td{background:var(--mk-soft)}
   .mbtools{margin-left:0; width:100%}
   .mbtools .ghost{flex:1}
 }
+.presetpick{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px}
+.presetpick .tp{background:var(--surface); border:1px solid var(--line)}
+.presetpick .tp.on{background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(14,165,233,.14))}
+.tp.ghosttp{opacity:.6; cursor:default; border-style:dashed}
+.tp.ghosttp:hover{transform:none; border-color:var(--line)}
+.customnote{margin-top:10px; color:var(--mk)}
+/* inline pictures (fractions, expressions): transparent GIFs with black ink */
+img.inl{background:#fff; padding:4px 6px; box-sizing:content-box}
+img.inl.tiny{display:inline-block; vertical-align:middle; width:auto; max-height:none; margin:2px 0}
+.opt img.inl.tiny{margin:0}

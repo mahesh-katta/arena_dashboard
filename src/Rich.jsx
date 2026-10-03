@@ -9,12 +9,23 @@ import { BANK, imgSrc } from "./store.js";
    never be mistaken for a marker. */
 const MARK = /(\[img:[^\]\n]+\]|\*\*[\s\S]+?\*\*|__[\s\S]+?__)/g;
 
+/* Most pictures inside a mock question are tiny transparent GIFs of a fraction
+   or an expression (32×27 px of black ink). Drawn as-is they vanish on a dark
+   card and are too small to read, so they sit on white and are scaled up. */
+function grow(e) {
+  const im = e.currentTarget;
+  if (im.naturalHeight && im.naturalHeight <= 48) {
+    im.classList.add("tiny");
+    im.style.height = Math.round(im.naturalHeight * 1.6) + "px";
+  }
+}
+
 function parts(s, key = "") {
   return s.split(MARK).map((part, i) => {
     if (!part) return null;
     const k = key + i;
     if (part.startsWith("[img:"))
-      return <img key={k} className="inl" src={imgSrc(part.slice(5, -1))} alt="" loading="lazy" decoding="async" />;
+      return <img key={k} className="inl" src={imgSrc(part.slice(5, -1))} alt="" loading="lazy" decoding="async" onLoad={grow} />;
     for (const [m, Tag] of [["**", "b"], ["__", "u"]]) {
       if (part.length >= 4 && part.startsWith(m) && part.endsWith(m)) {
         const inner = part.slice(2, -2);
